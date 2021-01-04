@@ -1,0 +1,11 @@
+// day,countryCode,countryName,region,lat,lon,confirmed,recovered,death
+
+date = "day" as { "%u/%u/%u", year, month, day };
+countryCode = "countryCode";
+country = "countryName";
+region = "region";
+lat = "lat";
+long = "lon";
+confirmed = "confirmed";
+recovered = "recovered";
+deaths = "death";
