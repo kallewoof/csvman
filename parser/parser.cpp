@@ -63,7 +63,6 @@ std::vector<std::string> parse_symbol_list(cache_map& cache, Token& s) {
     }
 
     if (values.size() != 0) s = r;
-
     return values;
 }
 
@@ -118,12 +117,14 @@ ST parse_declarations(cache_map& cache, Token& s) {
         // aspects A, B, ...
         auto aspects = parse_symbol_list(cache, r);
         if (aspects.size() < 2) return nullptr;
+        s = r;
         return new aspects_t(aspects);
     }
 
     if (type == "layout") {
         var = (var_t*)parse_variable(cache, r);
         if (!var) return nullptr;
+        s = r;
         return new decl_t(type, var); // i think it claims var, yeah?
     }
 
@@ -136,6 +137,7 @@ ST parse_fit(cache_map& cache, Token& s) {
     if (!parse_keyword(cache, r, "fit")) return nullptr;
     auto fits = parse_symbol_list(cache, r);
     if (fits.size() < 2) return nullptr;
+    s = r;
     return new fit_t(fits);
 }
 
@@ -145,6 +147,7 @@ ST parse_key(cache_map& cache, Token& s) {
     if (!parse_keyword(cache, r, "key")) return nullptr;
     auto e = parse_expr(cache, r);
     if (!e) return nullptr;
+    s = r;
     return new key_t(e);
 }
 
