@@ -26,8 +26,8 @@ struct st_callback_table {
     // virtual ref  range(ref arrayref, ref startref, ref endref) = 0;
     // virtual ref  compare(ref a, ref b, token_type op) = 0;
     // virtual bool truthy(ref v) = 0;
-    virtual ref scanf(ref input, const std::string& fmt, const std::vector<std::string>& varnames) = 0;
-    virtual void declare(const std::string& key, ref value) = 0;
+    virtual ref scanf(const std::string& input, const std::string& fmt, const std::vector<std::string>& varnames) = 0;
+    virtual void declare(const std::string& key, const std::string& value) = 0;
     virtual void declare_aspects(const std::vector<std::string>& aspects) = 0;
     virtual ref fit(const std::vector<std::string>& sources) = 0;
     virtual ref key(ref source) = 0;
@@ -140,6 +140,9 @@ struct key_t: public st_t {
         ref result = value.r->eval(ct);
         return ct->key(result);
     }
+    virtual ST clone() override {
+        return new key_t(value.clone());
+    }
 };
 
 struct value_t: public st_t {
@@ -180,51 +183,18 @@ struct set_t: public st_t {
     }
 };
 
-// struct list_t: public st_t {
-//     ref* listref;
-//     std::vector<st_c> values;
-//     list_t(const std::vector<st_c>& values_in) : values(values_in) {
-//         listref = (ref*)malloc(sizeof(ref) * values.size());
-//     }
-//     ~list_t() {
-//         free(listref);
-//     }
-//     virtual std::string to_string() override {
-//         std::string s = "[";
-//         for (size_t i = 0; i < values.size(); ++i) {
-//             s += (i ? ", " : "") + values[i].r->to_string();
-//         }
-//         return s + "]";
-//     }
-//     virtual ref eval(st_callback_table* ct) override {
-//         for (size_t i = 0; i < values.size(); ++i) {
-//             listref[i] = values[i].r->eval(ct);
-//         }
-//         return ct->to_array(values.size(), listref);
-//     }
-//     virtual ST clone() override {
-//         std::vector<st_c> cv;
-//         for (auto& v : values) {
-//             cv.push_back(v.clone());
-//         }
-//         return new list_t(cv);
-//     }
-// };
-
 struct decl_t: public st_t {
-    std::string key;
-    st_c value;
-    decl_t(const std::string& key_in, st_c value_in) : key(key_in), value(value_in) {}
+    std::string key, value;
+    decl_t(const std::string& key_in, const std::string& value_in) : key(key_in), value(value_in) {}
     virtual std::string to_string() override {
-        return key + " " + value.r->to_string();
+        return key + " " + value;
     }
     virtual ref eval(st_callback_table* ct) override {
-        ref result = value.r->eval(ct);
-        ct->declare(key, result);
+        ct->declare(key, value);
         return nullref;
     }
     virtual ST clone() override {
-        return new set_t(key, value.clone());
+        return new decl_t(key, value);
     }
 };
 
@@ -267,21 +237,20 @@ struct as_t: public st_t {
 
 // * as { "%u/%u/%u", year, month, day };
 struct field_t: public st_t {
-    std::string name;
+    std::string value;
     as_t* as;
-    field_t(const std::string& name_in, as_t* as_in) : name(name_in), as(as_in) {}
+    field_t(const std::string& value_in, as_t* as_in) : value(value_in), as(as_in) {}
     ~field_t() {
         if (as) delete as;
     }
     virtual std::string to_string() override {
-        return name + (as ? " " + as->to_string() : "");
+        return value + (as ? " " + as->to_string() : "");
     }
     virtual ref eval(st_callback_table* ct) override {
-        ref v = ct->load(name);
-        return as ? ct->scanf(v, as->fmt, as->fields) : v;
+        return ct->scanf(value, as->fmt, as->fields);
     }
     virtual ST clone() override {
-        return new field_t(name, (as_t*) as->clone());
+        return new field_t(value, (as_t*) as->clone());
     }
 };
 

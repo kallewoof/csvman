@@ -40,7 +40,7 @@ ST parse_variable(cache_map& cache, Token& s) {
 
 ST parse_value(cache_map& cache, Token& s) {
     DEBUG_PARSER("value");
-    if (s->token == tok_symbol || s->token == tok_number || s->token == tok_string) {
+    if (s->token == tok_symbol || s->token == tok_number || s->token == tok_string || s->token == tok_mul) {
         value_t* t = new value_t(s->token, s->value);
         s = s->next;
         return t;
@@ -67,17 +67,20 @@ std::vector<std::string> parse_symbol_list(cache_map& cache, Token& s) {
 }
 
 ST parse_field(cache_map& cache, Token& s) {
-    // tok_symbol "as" lcurly CSV rcurly
+    if (s && s->value && !strncmp("*", s->value, 1)) {
+        printf("*\n");
+    }
+    // value "as" lcurly CSV rcurly
     DEBUG_PARSER("field");
     Token r = s;
-    var_t* var = (var_t*)parse_variable(cache, r);
-    if (!var) return nullptr;
-    std::string field_name = var->varname;
-    delete var;
-    if (!parse_keyword(cache, r, "as")) return nullptr;
+    value_t* val = (value_t*)parse_value(cache, r);
+    if (!val) return nullptr;
+    std::string value = val->value;
+    delete val;
+    if (!r || !parse_keyword(cache, r, "as")) return nullptr;
     if (r->token != tok_lcurly || !r->next || r->next->token != tok_string || !r->next->next || r->next->next->token != tok_comma) return nullptr;
     r = r->next;
-    value_t* val = (value_t*)parse_value(cache, r);
+    val = (value_t*)parse_value(cache, r);
     std::string fmt = val->value;
     delete val;
     r = r->next; // we already checked tok_comma
@@ -85,7 +88,7 @@ ST parse_field(cache_map& cache, Token& s) {
     if (list.size() == 0) return nullptr;
     if (!r || r->token != tok_rcurly) return nullptr;
     s = r->next;
-    return new field_t(field_name, new as_t(fmt, list));
+    return new field_t(value, new as_t(fmt, list));
 }
 
 ST parse_set(cache_map& cache, Token& s) {
@@ -124,8 +127,10 @@ ST parse_declarations(cache_map& cache, Token& s) {
     if (type == "layout") {
         var = (var_t*)parse_variable(cache, r);
         if (!var) return nullptr;
+        std::string declaration = var->varname;
+        delete var;
         s = r;
-        return new decl_t(type, var); // i think it claims var, yeah?
+        return new decl_t(type, declaration);
     }
 
     return nullptr;

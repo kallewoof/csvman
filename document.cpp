@@ -29,7 +29,9 @@ Context CompileCMF(FILE* fp) {
 
     env_t e;
 
+    uint32_t lineno = 0;
     for (auto& line : program) {
+        printf("%03u %s\n", ++lineno, line->to_string().c_str());
         line->eval(&e);
         delete line;
     }

@@ -15,6 +15,7 @@ ref env_t::load(const std::string& variable) {
 
 
 void env_t::save(const std::string& variable, const Var& value) {
+    printf("  [] %s = %s\n", variable.c_str(), value->to_string().c_str());
     ctx->vars[variable] = value;
     ctx->links[value->str] = variable;
 }
@@ -34,25 +35,21 @@ ref env_t::constant(const std::string& value, token_type type) {
     return ctx->temps.emplace(value, type == parser::tok_number);
 }
 
-ref env_t::scanf(ref input, const std::string& fmt, const std::vector<std::string>& varnames) {
-    Var& inp = ctx->temps.pull(input);
-    std::string input_string = inp->str;
-
-    if (inp->fmt != "" || inp->varnames.size() > 0) throw std::runtime_error("multiple scanf encumbrances are not supported");
-
-    inp->fmt = fmt;
-    inp->varnames = varnames;
-    return input;
+ref env_t::scanf(const std::string& input, const std::string& fmt, const std::vector<std::string>& varnames) {
+    Var tmp = std::make_shared<var_t>(input);
+    tmp->fmt = fmt;
+    tmp->varnames = varnames;
+    return ctx->temps.pass(tmp);
 }
 
-void env_t::declare(const std::string& key, ref value) {
+void env_t::declare(const std::string& key, const std::string& value) {
     if (key == "layout") {
-        Var& inp = ctx->temps.pull(value);
-        std::string layout_str = inp->str;
-        if (layout_str == "vertical") ctx->layout = layout_t::vertical;
-        else if (layout_str == "horizontal") ctx->layout = layout_t::horizontal;
-        else throw std::runtime_error("unknown layout: " + layout_str);
+        if (value == "vertical") ctx->layout = layout_t::vertical;
+        else if (value == "horizontal") ctx->layout = layout_t::horizontal;
+        else throw std::runtime_error("unknown layout: " + value);
+        return;
     }
+    throw std::runtime_error("unknown declaration key " + key);
 }
 
 void env_t::declare_aspects(const std::vector<std::string>& aspects) {
@@ -175,5 +172,8 @@ std::string var_t::write() const {
 
 std::string var_t::to_string() const {
     if (fmt == "") return str;
+    if (comps.size() == 0) {
+        return str + " (" + std::to_string(varnames.size()) + " component scanned)";
+    }
     return str + "(" + write() + ")";
 }

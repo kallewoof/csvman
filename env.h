@@ -76,8 +76,8 @@ struct env_t: public parser::st_callback_table {
     void save(const std::string& variable, const Var& value);
     void save(const std::string& variable, parser::ref value) override;
     parser::ref constant(const std::string& value, parser::token_type type) override;
-    parser::ref scanf(parser::ref input, const std::string& fmt, const std::vector<std::string>& varnames) override;
-    void declare(const std::string& key, parser::ref value) override;
+    parser::ref scanf(const std::string& input, const std::string& fmt, const std::vector<std::string>& varnames) override;
+    void declare(const std::string& key, const std::string& value) override;
     void declare_aspects(const std::vector<std::string>& aspects) override;
     parser::ref fit(const std::vector<std::string>& sources) override;
     parser::ref key(parser::ref source) override;
