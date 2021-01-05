@@ -5,14 +5,13 @@
 
 #include "env.h"
 
-typedef std::shared_ptr<env_t> Env;
-
 struct document_t {
-    Env env;
-    // align var names to indices in a document (e.g. a CSV file)
+    Context ctx;
+    // align var names to header indices in a document (e.g. a CSV file's first line)
     void align(const std::vector<std::string>& headers);
+    
 };
 
-Env CompileCMF(FILE* fp);
+Context CompileCMF(FILE* fp);
 
 #endif // included_document_h_

@@ -1,13 +1,17 @@
-// Date,Country/Region,Province/State,Confirmed,Recovered,Deaths
-// 2020-01-22,Afghanistan,,0,0,0
+# Date,Country/Region,Province/State,Confirmed,Recovered,Deaths
+# 2020-01-22,Afghanistan,,0,0,0
 
-date = "Date" as { "%u-%u-%u", year, month, day };
+key date = "Date" as { "%u-%u-%u", year, month, day };
+
 country = "Country/Region";
 region = "Provice/State";
+
+key place = fit region, country;
+
 confirmed = "Confirmed";
 recovered = "Recovered";
 deaths = "Deaths";
 
-// coords are missing in this dataset so these are hard coded to the int value 0
+# coords are missing in this dataset so these are hard coded to the int value 0
 lat = 0;
 long = 0;

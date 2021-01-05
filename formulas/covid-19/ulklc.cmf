@@ -1,9 +1,13 @@
-// day,countryCode,countryName,region,lat,lon,confirmed,recovered,death
+# day,countryCode,countryName,region,lat,lon,confirmed,recovered,death
 
-date = "day" as { "%u/%u/%u", year, month, day };
+key date = "day" as { "%u/%u/%u", year, month, day };
 countryCode = "countryCode";
+
 country = "countryName";
 region = "region";
+
+key place = fit region, country;
+
 lat = "lat";
 long = "lon";
 confirmed = "confirmed";

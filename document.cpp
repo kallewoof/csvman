@@ -1,20 +1,25 @@
 #include "document.h"
-#include "tokenizer.h"
-#include "parser.h"
+#include "parser/tokenizer.h"
+#include "parser/parser.h"
 
 using Token = parser::Token;
 
-Env CompileCMF(FILE* fp) {
-    size_t cap = 1024;
-    size_t pos = 0;
+Context CompileCMF(FILE* fp) {
+    size_t cap = 128;
+    size_t rem = 128;
     size_t read;
     char* buf = (char*)malloc(cap);
-    while (0 < (read = fread(&buf[cap], 1, cap, fp))) {
-        if (read < cap) {
+    char* pos = buf;
+    while (0 < (read = fread(pos, 1, rem, fp))) {
+        if (read < rem) {
             break;
         }
         pos += read;
-        buf = (char*)realloc(buf, pos + cap);
+        cap <<= 1;
+        read = pos - buf;
+        buf = (char*)realloc(buf, cap);
+        pos = buf + read;
+        rem = cap - read;
     }
 
     Token t = parser::tokenize(buf);
@@ -22,12 +27,12 @@ Env CompileCMF(FILE* fp) {
 
     std::vector<parser::ST> program = parser::parse_alloc(t);
 
-    Env e = std::make_shared<env_t>();
+    env_t e;
 
     for (auto& line : program) {
-        line->eval(e.get());
+        line->eval(&e);
         delete line;
     }
 
-    return e;
+    return e.ctx;
 }

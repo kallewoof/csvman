@@ -32,6 +32,10 @@ Token tokenize(const char* s) {
             // we only support 1 token consumption at this point
             tail->token = tok_consumable;
         }
+        if (token == tok_comment) {
+            finding = '\n';
+            continue;
+        }
         // printf("token = %s\n", token_type_str[token]);
         if (token == tok_consumable && tail->token == tok_consumable) {
             char buf[128];
@@ -57,6 +61,8 @@ Token tokenize(const char* s) {
                 finalized = true;
             }
             switch (token) {
+            case tok_comment:
+                // we technically never get here
             case tok_string:
                 finding = '"';
             case tok_symbol:

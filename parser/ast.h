@@ -19,7 +19,8 @@ struct st_callback_table {
     // virtual ref  fcall(const std::string& fname, ref args) = 0;
     // virtual ref  pcall(ref program, ref args) = 0;
     // virtual ref  preg(program_t* program) = 0;
-    virtual ref  convert(const std::string& value, token_type type) = 0;
+    // virtual ref  convert(const std::string& value, token_type type) = 0;
+    virtual ref  constant(const std::string& value, token_type type) = 0;
     // virtual ref  to_array(size_t count, ref* refs) = 0;
     // virtual ref  at(ref arrayref, ref indexref) = 0;
     // virtual ref  range(ref arrayref, ref startref, ref endref) = 0;
@@ -27,7 +28,9 @@ struct st_callback_table {
     // virtual bool truthy(ref v) = 0;
     virtual ref scanf(ref input, const std::string& fmt, const std::vector<std::string>& varnames) = 0;
     virtual void declare(const std::string& key, ref value) = 0;
-    virtual ref declare_aspects(const std::vector<std::string>& aspects) = 0;
+    virtual void declare_aspects(const std::vector<std::string>& aspects) = 0;
+    virtual ref fit(const std::vector<std::string>& sources) = 0;
+    virtual ref key(ref source) = 0;
 };
 
 typedef struct st_t * ST;
@@ -112,6 +115,33 @@ struct var_t: public st_t {
     }
 };
 
+struct fit_t: public st_t {
+    std::vector<std::string> references;
+    fit_t(const std::vector<std::string>& references_in) : references(references_in) {}
+    virtual std::string to_string() override {
+        std::string s = "fit [" + std::to_string(references.size()) + " items]";
+        return s;
+    }
+    virtual ref eval(st_callback_table* ct) override {
+        return ct->fit(references);
+    }
+    virtual ST clone() override {
+        return new fit_t(references);
+    }
+};
+
+struct key_t: public st_t {
+    st_c value;
+    key_t(st_c value_in) : value(value_in) {}
+    virtual std::string to_string() override {
+        return "key " + value.r->to_string();
+    }
+    virtual ref eval(st_callback_table* ct) override {
+        ref result = value.r->eval(ct);
+        return ct->key(result);
+    }
+};
+
 struct value_t: public st_t {
     token_type type; // tok_number, tok_string, tok_symbol
     std::string value;
@@ -125,7 +155,8 @@ struct value_t: public st_t {
         return value;
     }
     virtual ref eval(st_callback_table* ct) override {
-        return ct->convert(value, type);
+        if (type == tok_symbol) return ct->load(value);
+        return ct->constant(value, type);
     }
     virtual ST clone() override {
         return new value_t(type, value);
@@ -208,7 +239,8 @@ struct aspects_t: public st_t {
         return s;
     }
     virtual ref eval(st_callback_table* ct) override {
-        return ct->declare_aspects(aspects);
+        ct->declare_aspects(aspects);
+        return nullref;
     }
     virtual ST clone() override {
         return new aspects_t(aspects);
@@ -219,7 +251,7 @@ struct aspects_t: public st_t {
 struct as_t: public st_t {
     std::string fmt;
     std::vector<std::string> fields;
-    as_t(const std::string& fmt_in, const std::vector<std::string>& fields_in = std::vector<std::string>()) : fmt(fmt_in), fields(fields_in) {}
+    as_t(const std::string& fmt_in, const std::vector<std::string>& fields_in) : fmt(fmt_in), fields(fields_in) {}
     virtual std::string to_string() override {
         if (fields.size() == 0) return "as \"" + fmt + "\"";
         std::string s = "as { \"" + fmt + "\", ";

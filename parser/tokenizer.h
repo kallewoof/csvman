@@ -27,6 +27,7 @@ enum token_type {
     tok_mul,
     tok_consumable, // consumed by fulfilled token sequences
     tok_ws,
+    tok_comment
 };
 
 static const char* token_type_str[] = {
@@ -41,9 +42,10 @@ static const char* token_type_str[] = {
     ";",
     "lcurly",
     "rcurly",
-    "*"
+    "*",
     "consumable",
     "ws",
+    "comment"
 };
 
 typedef struct token_t * Token;
@@ -68,6 +70,7 @@ struct token_t {
 
 inline token_type determine_token(const char c, const char p, token_type current, int& consumes) {
     consumes = 0;
+    if (c == '#') return tok_comment;
     if (c == '*') return tok_mul;
     if (c == ',') return tok_comma;
     if (c == ';') return tok_semicolon;

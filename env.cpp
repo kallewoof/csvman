@@ -16,13 +16,14 @@ ref env_t::load(const std::string& variable) {
 
 void env_t::save(const std::string& variable, const Var& value) {
     ctx->vars[variable] = value;
+    ctx->links[value->str] = variable;
 }
 
 void env_t::save(const std::string& variable, ref value) {
     save(variable, ctx->temps.pull(value));
 }
 
-ref env_t::convert(const std::string& value, token_type type) {
+ref env_t::constant(const std::string& value, token_type type) {
     switch (type) {
     case parser::tok_number:
     case parser::tok_string:
@@ -30,7 +31,7 @@ ref env_t::convert(const std::string& value, token_type type) {
     default:
         throw std::runtime_error(std::string("unable to convert ") + parser::token_type_str[type]);
     }
-    return ctx->temps.emplace(value);
+    return ctx->temps.emplace(value, type == parser::tok_number);
 }
 
 ref env_t::scanf(ref input, const std::string& fmt, const std::vector<std::string>& varnames) {
@@ -42,6 +43,39 @@ ref env_t::scanf(ref input, const std::string& fmt, const std::vector<std::strin
     inp->fmt = fmt;
     inp->varnames = varnames;
     return input;
+}
+
+void env_t::declare(const std::string& key, ref value) {
+    if (key == "layout") {
+        Var& inp = ctx->temps.pull(value);
+        std::string layout_str = inp->str;
+        if (layout_str == "vertical") ctx->layout = layout_t::vertical;
+        else if (layout_str == "horizontal") ctx->layout = layout_t::horizontal;
+        else throw std::runtime_error("unknown layout: " + layout_str);
+    }
+}
+
+void env_t::declare_aspects(const std::vector<std::string>& aspects) {
+    if (ctx->aspects.size() > 0) throw std::runtime_error("multiple aspects statements are invalid");
+    ctx->aspects = aspects;
+
+}
+
+ref env_t::fit(const std::vector<std::string>& sources) {
+    Var fitted = std::make_shared<var_t>();
+    for (auto c : sources) {
+        if (ctx->vars.count(c) == 0) throw std::runtime_error("unknown variable " + c + " in fit operation");
+        auto v = ctx->vars[c];
+        fitted->fit.push_back(v->str);
+    }
+    return ctx->temps.pass(fitted);
+}
+
+ref env_t::key(ref source) {
+    Var& inp = ctx->temps.pull(source);
+    if (inp->key) throw std::runtime_error("duplicate key assignment to variable");
+    inp->key = true;
+    return source;
 }
 
 bool scan(const std::set<char>& allowed, const char stopper, const char*& data, char* dst, bool decimal = false) {
@@ -104,7 +138,7 @@ void var_t::read(const std::string& input_string) {
             if (!scan(*set, stopper, pos, buf, decimal)) {
                 throw std::runtime_error(std::string("failed to scan %") + ch + " from input " + input_string.data() + " near " + pos);
             }
-            comps[varnames[varnamepos++]] = std::make_shared<var_t>(buf);
+            comps[varnames[varnamepos++]] = buf;
             if (varnamepos == varnames.size()) return;
             fmtflag = false;
         } else if (ch == '%') {
@@ -119,17 +153,27 @@ void var_t::read(const std::string& input_string) {
     if (varnamepos < varnames.size()) throw std::runtime_error("input ended before scanning variable " + varnames[varnamepos] + " in " + input_string + " for format " + fmt);
 }
 
-std::string var_t::write() {
+std::string var_t::write() const {
     std::string rv = "";
     size_t varnamepos = 0;
+    bool fmtflag = false;
     for (size_t i = 0; i < fmt.size(); ++i) {
         char ch = fmt[i];
         if (fmtflag) {
-            rv += comps.at(varnames.at(varnamepos++));
+            if (ch == '%') {
+                rv += '%';
+            } else {
+                rv += comps.at(varnames.at(varnamepos++));
+            }
             fmtflag = false;
         } else if (ch == '%') {
             fmtflag = true;
         } else rv += ch;
     }
     return rv;
+}
+
+std::string var_t::to_string() const {
+    if (fmt == "") return str;
+    return str + "(" + write() + ")";
 }

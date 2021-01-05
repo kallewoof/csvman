@@ -20,6 +20,14 @@ Token head = nullptr;
     }
 #define DEBUG_PARSER(s) //pdo __pdo(s) //printf("- %s\n", s)
 
+bool parse_keyword(cache_map& cache, Token& r, const std::string& keyword) {
+    var_t* v = (var_t*)parse_variable(cache, r);
+    if (!v) return false;
+    bool rv = v->varname == keyword;
+    delete v;
+    return rv;
+}
+
 ST parse_variable(cache_map& cache, Token& s) {
     DEBUG_PARSER("variable");
     if (s->token == tok_symbol) {
@@ -60,7 +68,6 @@ std::vector<std::string> parse_symbol_list(cache_map& cache, Token& s) {
 }
 
 ST parse_field(cache_map& cache, Token& s) {
-    // tok_symbol "as" tok_string
     // tok_symbol "as" lcurly CSV rcurly
     DEBUG_PARSER("field");
     Token r = s;
@@ -68,17 +75,7 @@ ST parse_field(cache_map& cache, Token& s) {
     if (!var) return nullptr;
     std::string field_name = var->varname;
     delete var;
-    {
-        var_t* as = (var_t*)parse_variable(cache, r);
-        if (!as) return nullptr;
-        if (!r || as->varname != "as") { delete as; return nullptr; }
-        delete as;
-    }
-    if (r->token == tok_string) {
-        // simplified case (single sscanf into field name)
-        s = r;
-        return new field_t(field_name, new as_t(r->value));
-    }
+    if (!parse_keyword(cache, r, "as")) return nullptr;
     if (r->token != tok_lcurly || !r->next || r->next->token != tok_string || !r->next->next || r->next->next->token != tok_comma) return nullptr;
     r = r->next;
     value_t* val = (value_t*)parse_value(cache, r);
@@ -127,10 +124,28 @@ ST parse_declarations(cache_map& cache, Token& s) {
     if (type == "layout") {
         var = (var_t*)parse_variable(cache, r);
         if (!var) return nullptr;
-        auto rv = new decl_t(type, var);
+        return new decl_t(type, var); // i think it claims var, yeah?
     }
 
     return nullptr;
+}
+
+ST parse_fit(cache_map& cache, Token& s) {
+    DEBUG_PARSER("fit");
+    Token r = s;
+    if (!parse_keyword(cache, r, "fit")) return nullptr;
+    auto fits = parse_symbol_list(cache, r);
+    if (fits.size() < 2) return nullptr;
+    return new fit_t(fits);
+}
+
+ST parse_key(cache_map& cache, Token& s) {
+    DEBUG_PARSER("key");
+    Token r = s;
+    if (!parse_keyword(cache, r, "key")) return nullptr;
+    auto e = parse_expr(cache, r);
+    if (!e) return nullptr;
+    return new key_t(e);
 }
 
 ST parse_expr(cache_map& cache, Token& s) {
@@ -138,10 +153,14 @@ ST parse_expr(cache_map& cache, Token& s) {
     ST x;
     Token pcv = s;
     if (cache.count(pcv)) return cache.at(pcv)->hit(s);
-    // foobar38, "foobar", 38, foobar38 = [...], layout vertical, foobar38 as "%u", foobar38 as { "%u-%u-%u", a, b, c }
+    // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical, foobar38 as "%u", foobar38 as { "%u-%u-%u", a, b, c }
     try(parse_field);
-    // foobar38, "foobar", 38, foobar38 = [...], layout vertical
+    // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical
     try(parse_declarations);
+    // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38
+    try(parse_key);
+    // foobar38, "foobar", 38, foobar38 = [...], fit ...
+    try(parse_fit);
     // foobar38, "foobar", 38, foobar38 = [...]
     try(parse_set);
     // foobar38, "foobar", 38
@@ -169,7 +188,6 @@ ST parse_alloc_one(Token tokens) {
         return nullptr;
     }
     return value;
-
 }
 
 std::vector<ST> parse_alloc(Token tokens) {
