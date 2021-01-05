@@ -3,11 +3,22 @@
 
 #include "parser/parser.h"
 
-struct var_t {
-    std::string str;
-    std::vector<std::string> fit;
+struct val_t {
+    std::string value;
+    std::vector<std::string> alternatives;
     std::map<std::string, std::string> comps;
-    size_t index{0};
+    bool operator<(const val_t& other) const;
+    std::string to_string() const;
+};
+
+typedef std::shared_ptr<val_t> Value;
+
+struct var_t {
+    std::string str; // this is the string associated with this variable, e.g. "date" or "Province/Region".
+    std::string value; // this is the actual value at the moment (e.g. "2021-01-05")
+    std::vector<std::shared_ptr<var_t>> fit; // this is a fit vector for combining multiple fields
+    std::map<std::string, std::string> comps;
+    int index{-1};
     bool trails{false};
     bool key{false};
     bool numeric{false};
@@ -20,6 +31,9 @@ struct var_t {
     void read(const std::string& input);
     std::string write() const;
     std::string to_string() const;
+    bool operator<(const var_t& other) const;
+    Value imprint() const;
+    void read(const val_t& val);
 };
 
 typedef std::shared_ptr<var_t> Var;
@@ -59,6 +73,7 @@ struct context_t {
     std::map<std::string,Var> vars;
     std::map<std::string,std::string> links;
     std::vector<std::string> aspects;
+    Var trailing;
     layout_t layout = layout_t::vertical;
     tempstore_t temps;
 };

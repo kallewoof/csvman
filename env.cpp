@@ -17,7 +17,18 @@ ref env_t::load(const std::string& variable) {
 void env_t::save(const std::string& variable, const Var& value) {
     printf("  [] %s = %s\n", variable.c_str(), value->to_string().c_str());
     ctx->vars[variable] = value;
-    ctx->links[value->str] = variable;
+    if (value->str == "*") value->trails = true;
+    if (value->fit.size() == 0 && !value->numeric) {
+        if (value->str == "*") {
+            if (ctx->trailing.get()) {
+                throw std::runtime_error("multiple trailing declarations not supported");
+            }
+            value->trails = true;
+            ctx->trailing = value;
+        } else {
+            ctx->links[value->str] = variable;
+        }
+    }
 }
 
 void env_t::save(const std::string& variable, ref value) {
@@ -55,7 +66,6 @@ void env_t::declare(const std::string& key, const std::string& value) {
 void env_t::declare_aspects(const std::vector<std::string>& aspects) {
     if (ctx->aspects.size() > 0) throw std::runtime_error("multiple aspects statements are invalid");
     ctx->aspects = aspects;
-
 }
 
 ref env_t::fit(const std::vector<std::string>& sources) {
@@ -63,7 +73,7 @@ ref env_t::fit(const std::vector<std::string>& sources) {
     for (auto c : sources) {
         if (ctx->vars.count(c) == 0) throw std::runtime_error("unknown variable " + c + " in fit operation");
         auto v = ctx->vars[c];
-        fitted->fit.push_back(v->str);
+        fitted->fit.push_back(v);
     }
     return ctx->temps.pass(fitted);
 }
@@ -80,7 +90,7 @@ bool scan(const std::set<char>& allowed, const char stopper, const char*& data, 
     while (data[0] == ' ' || data[0] == '\t' || data[0] == '\n') ++data;
     // read into dst
     const char* start = dst;
-    while ((data[0] != '.' || decimal) && allowed.count(data[0]) && (start == dst || data[0] == stopper)) {
+    while ((data[0] != '.' || decimal) && allowed.count(data[0]) && (start == dst || data[0] != stopper)) {
         dst[0] = data[0];
         decimal = decimal && data[0] != '.';
         ++data;
@@ -98,6 +108,21 @@ template<typename T> static inline void set_insert_array(std::set<T>& set, T* ar
 }
 
 void var_t::read(const std::string& input_string) {
+    value = input_string;
+
+    if (fit.size() > 0) {
+        const char* ch = input_string.data();
+        size_t s = 0, p = 0;
+        for (size_t i = 0; i < fit.size(); ++i) {
+            while (input_string[p] && input_string[p] != '|') ++p;
+            fit[i]->read(std::string(&ch[s], &ch[p]));
+            ++p;
+        }
+        return;
+    }
+
+    if (fmt == "") return;
+
     static std::set<char>* u_set = nullptr;
     static std::set<char>* s_set = nullptr;
     if (!u_set) {
@@ -143,37 +168,142 @@ void var_t::read(const std::string& input_string) {
         } else {
             if (pos[0] != ch) throw std::runtime_error(std::string("format scan failure (missing ") + ch + " in " + input_string + ")");
             ++pos;
-            break;
         }
     }
 
     if (varnamepos < varnames.size()) throw std::runtime_error("input ended before scanning variable " + varnames[varnamepos] + " in " + input_string + " for format " + fmt);
 }
 
-std::string var_t::write() const {
-    std::string rv = "";
-    size_t varnamepos = 0;
-    bool fmtflag = false;
-    for (size_t i = 0; i < fmt.size(); ++i) {
-        char ch = fmt[i];
-        if (fmtflag) {
-            if (ch == '%') {
-                rv += '%';
-            } else {
-                rv += comps.at(varnames.at(varnamepos++));
-            }
-            fmtflag = false;
-        } else if (ch == '%') {
-            fmtflag = true;
-        } else rv += ch;
+Value var_t::imprint() const {
+    Value val = std::make_shared<val_t>();
+    val->value = value;
+    if (fmt.size() > 0) {
+        val->comps = comps;
+        return val;
     }
-    return rv;
+    if (fit.size() > 0) {
+        std::vector<std::string> versions;
+        for (const auto& f : fit) versions.push_back(f->write());
+        val->value = versions.back();
+        versions.pop_back();
+        val->alternatives = versions;
+    }
+    return val;
+}
+
+void var_t::read(const val_t& val) {
+    value = val.value;
+    comps = val.comps;
+}
+
+std::string var_t::write() const {
+    if (fmt.size() > 0) {
+        std::string rv = "";
+        size_t varnamepos = 0;
+        bool fmtflag = false;
+        for (size_t i = 0; i < fmt.size(); ++i) {
+            char ch = fmt[i];
+            if (fmtflag) {
+                if (ch == '%') {
+                    rv += '%';
+                } else {
+                    rv += comps.at(varnames.at(varnamepos++));
+                }
+                fmtflag = false;
+            } else if (ch == '%') {
+                fmtflag = true;
+            } else rv += ch;
+        }
+        return rv;
+    }
+    if (fit.size() > 0) {
+        std::string rv = "{";
+        for (size_t i = 0; i < fit.size(); ++i) {
+            rv += (i ? "|" : "") + fit[i]->write();
+        }
+        rv += "}";
+        return rv;
+    }
+    return value;
 }
 
 std::string var_t::to_string() const {
-    if (fmt == "") return str;
-    if (comps.size() == 0) {
-        return str + " (" + std::to_string(varnames.size()) + " component scanned)";
+    std::string suffix = "";
+    if (index != -1) suffix += " (@" + std::to_string(index) + ")";
+    if (key) suffix += " (key)";
+    if (numeric) suffix += " (num)";
+    if (trails) suffix += " (trails)";
+    if (fit.size() > 0) {
+        std::string s = "fit {";
+        for (const auto& f : fit) s += "\n\t" + f->to_string();
+        return s + "}" + suffix;
     }
-    return str + "(" + write() + ")";
+    if (fmt == "") return str + suffix;
+    if (comps.size() == 0) {
+        return str + " (" + std::to_string(varnames.size()) + " component scanned)" + suffix;
+    }
+    return str + "(" + write() + ")" + suffix;
+}
+
+std::string val_t::to_string() const {
+    std::string s = "";
+    if (comps.size() > 0) {
+        for (const auto& c : comps) {
+            s += (s == "" ? "" : ", ") + c.first + "=" + c.second;
+        }
+        return "{ " + s + " }";
+    }
+    if (alternatives.size() > 0) {
+        s = value;
+        for (const auto& a : alternatives) {
+            s += "|" + a;
+        }
+        return s;
+    }
+    return value;
+}
+
+bool var_t::operator<(const var_t& other) const {
+    if (fit.size() > 0) {
+        if (other.fit[0]->write()<fit[0]->write()) return false;
+        for (size_t i = 0; i < fit.size(); ++i) {
+            auto a = fit[i]->write();
+            for (size_t j = 0; j < other.fit.size(); ++j) {
+                auto b = other.fit[j]->write();
+                if (a == b) return false;
+            }
+        }
+        return true;
+    }
+    return other.write() < write();
+}
+
+bool val_t::operator<(const val_t& other) const {
+    std::vector<std::string> a, b;
+    if (alternatives.size() == 0) {
+        if (comps.size() > 0) {
+            for (const auto& i : comps) {
+                if (i.second < other.comps.at(i.first)) return true;
+                if (other.comps.at(i.first) < i.second) return false;
+            }
+            return false;
+        }
+        return (value < other.value);
+    }
+    a = alternatives;
+    a.push_back(value);
+    b = other.alternatives;
+    b.push_back(other.value);
+    int rv = -1;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (a[i] < b[i]) {
+            if (rv == -1) rv = 1;
+        } else if (b[i] < a[i]) {
+            if (rv == -1) rv = 0;
+        } else {
+            // they are equal
+            return false;
+        }
+    }
+    return rv == 1;
 }

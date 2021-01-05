@@ -2,10 +2,11 @@
 #include <cstdio>
 
 #include "document.h"
+#include "parser/csv.h"
 
 int main(int argc, const char* argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "syntax: %s <cmf file>\n", argv[0]);
+    if (argc != 5) {
+        fprintf(stderr, "syntax: %s <input cmf file> <input csv file> <output cmf file> <output csv file>\n", argv[0]);
         return 1;
     }
     FILE* fp = fopen(argv[1], "r");
@@ -18,7 +19,21 @@ int main(int argc, const char* argv[]) {
         ctx = CompileCMF(fp);
     } catch (const std::runtime_error& err) {
         fclose(fp);
-        fprintf(stderr, "compilation error: %s\n", err.what());
+        fprintf(stderr, "compilation error in %s: %s\n", argv[1], err.what());
+        return 3;
+    }
+    fclose(fp);
+    fp = fopen(argv[3], "r");
+    if (!fp) {
+        fprintf(stderr, "failed to open file: %s\n", argv[3]);
+        return 2;
+    }
+    Context ctx2;
+    try {
+        ctx2 = CompileCMF(fp);
+    } catch (const std::runtime_error& err) {
+        fclose(fp);
+        fprintf(stderr, "compilation error in %s: %s\n", argv[3], err.what());
         return 3;
     }
     fclose(fp);
@@ -38,6 +53,28 @@ int main(int argc, const char* argv[]) {
     }
     printf("Temps:\n");
     for (const auto& v : ctx->temps.store) {
-        printf("- %s\n", v->to_string().c_str());
+        printf("- %s\n", v.get() ? v->to_string().c_str() : "null");
+    }
+    document_t doc(ctx);
+    fp = fopen(argv[2], "r");
+    if (!fp) {
+        fprintf(stderr, "failed to open CSV file: %s\n", argv[2]);
+    }
+    csv reader(fp);
+    std::vector<std::string> row;
+    if (!reader.read(row)) {
+        fprintf(stderr, "could not read header from CSV file\n");
+    }
+    doc.align(row);
+    printf("Aligned vars:\n");
+    for (const auto& v : ctx->vars) {
+        printf("- %s = %s\n", v.first.c_str(), v.second->to_string().c_str());
+    }
+    while (reader.read(row)) {
+        doc.process(row);
+    }
+    fp = fopen(argv[4], "w");
+    if (!fp) {
+        fprintf(stderr, "could not open file for writing: %s\n", argv[4]);
     }
 }

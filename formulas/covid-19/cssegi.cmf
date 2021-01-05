@@ -1,7 +1,7 @@
 # Province/State,Country/Region,Lat,Long,1/22/20,1/23/20,1/24/20,...
 
 # entries are represented as columns
-layout vertical;
+layout horizontal;
 
 # the data is split into 3 separate files, each covering a single aspect
 # for other formats, these will appear as the fields "confirmed", "recovered", and "deaths"
@@ -14,7 +14,7 @@ key place = fit region, country;
 
 lat = "Lat";
 long = "Long";
-date = * as { "%u/%u/%u", year, month, day };
+key date = * as { "%u/%u/%u", year, month, day };
 # * indicates that the remaining labels are all values that go into the 'date' field (for header),
 # which happens to be comprised of three fields 'year', 'month', and 'day', sscanf'd as "%u/%u/%u".
 # and into the individual aspect keys (for the remainder)
