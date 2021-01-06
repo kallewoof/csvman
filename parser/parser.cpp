@@ -124,14 +124,14 @@ ST parse_declarations(cache_map& cache, Token& s) {
         return new aspects_t(aspects);
     }
 
-    if (type == "layout") {
-        var = (var_t*)parse_variable(cache, r);
-        if (!var) return nullptr;
-        std::string declaration = var->varname;
-        delete var;
-        s = r;
-        return new decl_t(type, declaration);
-    }
+    // if (type == "layout") {
+    //     var = (var_t*)parse_variable(cache, r);
+    //     if (!var) return nullptr;
+    //     std::string declaration = var->varname;
+    //     delete var;
+    //     s = r;
+    //     return new decl_t(type, declaration);
+    // }
 
     return nullptr;
 }

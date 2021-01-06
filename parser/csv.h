@@ -8,12 +8,11 @@
 class csv {
 public:
     FILE* fp;
-    csv(FILE* fp_in) : fp(fp_in), buf((char*)malloc(128)), cap(128) {}
+    csv(FILE* fp_in) : fp(fp_in) {}
     ~csv() { fclose(fp); }
     bool read(std::vector<std::string>& vec);
-private:
-    char* buf;
-    size_t cap;
+    void write(const std::vector<std::string>& vec);
+    // static void parse(const char* csv, std::vector<std::string>& vec);
 };
 
 #endif // included_csv_h_

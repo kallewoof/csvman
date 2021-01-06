@@ -3,10 +3,15 @@
 
 #include "parser/parser.h"
 
+struct comp_t {
+    std::string label;
+    int priority{0};
+};
+
 struct val_t {
     std::string value;
     std::vector<std::string> alternatives;
-    std::map<std::string, std::string> comps;
+    std::map<std::string, comp_t> comps;
     bool operator<(const val_t& other) const;
     std::string to_string() const;
 };
@@ -17,7 +22,7 @@ struct var_t {
     std::string str; // this is the string associated with this variable, e.g. "date" or "Province/Region".
     std::string value; // this is the actual value at the moment (e.g. "2021-01-05")
     std::vector<std::shared_ptr<var_t>> fit; // this is a fit vector for combining multiple fields
-    std::map<std::string, std::string> comps;
+    std::map<std::string, comp_t> comps;
     int index{-1};
     bool trails{false};
     bool key{false};
@@ -64,17 +69,12 @@ struct tempstore_t {
     }
 };
 
-enum class layout_t {
-    vertical,
-    horizontal,
-};
-
 struct context_t {
     std::map<std::string,Var> vars;
+    std::map<Var,std::string> varnames;
     std::map<std::string,std::string> links;
     std::vector<std::string> aspects;
     Var trailing;
-    layout_t layout = layout_t::vertical;
     tempstore_t temps;
 };
 
@@ -92,7 +92,7 @@ struct env_t: public parser::st_callback_table {
     void save(const std::string& variable, parser::ref value) override;
     parser::ref constant(const std::string& value, parser::token_type type) override;
     parser::ref scanf(const std::string& input, const std::string& fmt, const std::vector<std::string>& varnames) override;
-    void declare(const std::string& key, const std::string& value) override;
+    // void declare(const std::string& key, const std::string& value) override;
     void declare_aspects(const std::vector<std::string>& aspects) override;
     parser::ref fit(const std::vector<std::string>& sources) override;
     parser::ref key(parser::ref source) override;

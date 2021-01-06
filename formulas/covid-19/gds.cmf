@@ -1,7 +1,7 @@
 # Date,Country/Region,Province/State,Confirmed,Recovered,Deaths
 # 2020-01-22,Afghanistan,,0,0,0
 
-key date = "Date" as { "%u-%u-%u", year, month, day };
+key date = "Date" as { "%u-%u-%u", year(0), month(1), day(2) };
 
 country = "Country/Region";
 region = "Provice/State";

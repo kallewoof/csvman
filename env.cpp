@@ -17,6 +17,7 @@ ref env_t::load(const std::string& variable) {
 void env_t::save(const std::string& variable, const Var& value) {
     printf("  [] %s = %s\n", variable.c_str(), value->to_string().c_str());
     ctx->vars[variable] = value;
+    ctx->varnames[value] = variable;
     if (value->str == "*") value->trails = true;
     if (value->fit.size() == 0 && !value->numeric) {
         if (value->str == "*") {
@@ -53,15 +54,15 @@ ref env_t::scanf(const std::string& input, const std::string& fmt, const std::ve
     return ctx->temps.pass(tmp);
 }
 
-void env_t::declare(const std::string& key, const std::string& value) {
-    if (key == "layout") {
-        if (value == "vertical") ctx->layout = layout_t::vertical;
-        else if (value == "horizontal") ctx->layout = layout_t::horizontal;
-        else throw std::runtime_error("unknown layout: " + value);
-        return;
-    }
-    throw std::runtime_error("unknown declaration key " + key);
-}
+// void env_t::declare(const std::string& key, const std::string& value) {
+//     if (key == "layout") {
+//         if (value == "vertical") ctx->layout = layout_t::vertical;
+//         else if (value == "horizontal") ctx->layout = layout_t::horizontal;
+//         else throw std::runtime_error("unknown layout: " + value);
+//         return;
+//     }
+//     throw std::runtime_error("unknown declaration key " + key);
+// }
 
 void env_t::declare_aspects(const std::vector<std::string>& aspects) {
     if (ctx->aspects.size() > 0) throw std::runtime_error("multiple aspects statements are invalid");
@@ -192,8 +193,12 @@ Value var_t::imprint() const {
 }
 
 void var_t::read(const val_t& val) {
-    value = val.value;
-    comps = val.comps;
+    if (val.comps.size() == 0) {
+        value = val.value;
+    } else {
+        comps = val.comps;
+        value = write();
+    }
 }
 
 std::string var_t::write() const {

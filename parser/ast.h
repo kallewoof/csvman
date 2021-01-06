@@ -27,7 +27,7 @@ struct st_callback_table {
     // virtual ref  compare(ref a, ref b, token_type op) = 0;
     // virtual bool truthy(ref v) = 0;
     virtual ref scanf(const std::string& input, const std::string& fmt, const std::vector<std::string>& varnames) = 0;
-    virtual void declare(const std::string& key, const std::string& value) = 0;
+    // virtual void declare(const std::string& key, const std::string& value) = 0;
     virtual void declare_aspects(const std::vector<std::string>& aspects) = 0;
     virtual ref fit(const std::vector<std::string>& sources) = 0;
     virtual ref key(ref source) = 0;
@@ -183,20 +183,20 @@ struct set_t: public st_t {
     }
 };
 
-struct decl_t: public st_t {
-    std::string key, value;
-    decl_t(const std::string& key_in, const std::string& value_in) : key(key_in), value(value_in) {}
-    virtual std::string to_string() override {
-        return key + " " + value;
-    }
-    virtual ref eval(st_callback_table* ct) override {
-        ct->declare(key, value);
-        return nullref;
-    }
-    virtual ST clone() override {
-        return new decl_t(key, value);
-    }
-};
+// struct decl_t: public st_t {
+//     std::string key, value;
+//     decl_t(const std::string& key_in, const std::string& value_in) : key(key_in), value(value_in) {}
+//     virtual std::string to_string() override {
+//         return key + " " + value;
+//     }
+//     virtual ref eval(st_callback_table* ct) override {
+//         ct->declare(key, value);
+//         return nullref;
+//     }
+//     virtual ST clone() override {
+//         return new decl_t(key, value);
+//     }
+// };
 
 struct aspects_t: public st_t {
     std::vector<std::string> aspects;

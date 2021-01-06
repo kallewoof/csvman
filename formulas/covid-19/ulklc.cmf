@@ -1,6 +1,6 @@
 # day,countryCode,countryName,region,lat,lon,confirmed,recovered,death
 
-key date = "day" as { "%u/%u/%u", year, month, day };
+key date = "day" as { "%u/%u/%u", year(0), month(1), day(2) };
 countryCode = "countryCode";
 
 # country = "countryName";
