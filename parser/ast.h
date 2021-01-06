@@ -10,23 +10,19 @@ namespace parser {
 typedef size_t ref;
 static const ref nullref = 0;
 
+struct prioritized_t {
+    std::string label;
+    int priority;
+    prioritized_t(const std::string& label_in = "", int priority_in = 0) : label(label_in), priority(priority_in) {}
+    std::string to_string() const { return label + (priority != 0 ? "(" + std::to_string(priority) + ")" : ""); }
+};
+
 struct st_callback_table {
     bool ret = false;
     virtual ref  load(const std::string& variable) = 0;
     virtual void save(const std::string& variable, ref value) = 0;
-    // virtual ref  bin(token_type op, ref lhs, ref rhs) = 0;
-    // virtual ref  unary(token_type op, ref val) = 0;
-    // virtual ref  fcall(const std::string& fname, ref args) = 0;
-    // virtual ref  pcall(ref program, ref args) = 0;
-    // virtual ref  preg(program_t* program) = 0;
-    // virtual ref  convert(const std::string& value, token_type type) = 0;
     virtual ref  constant(const std::string& value, token_type type) = 0;
-    // virtual ref  to_array(size_t count, ref* refs) = 0;
-    // virtual ref  at(ref arrayref, ref indexref) = 0;
-    // virtual ref  range(ref arrayref, ref startref, ref endref) = 0;
-    // virtual ref  compare(ref a, ref b, token_type op) = 0;
-    // virtual bool truthy(ref v) = 0;
-    virtual ref scanf(const std::string& input, const std::string& fmt, const std::vector<std::string>& varnames) = 0;
+    virtual ref scanf(const std::string& input, const std::string& fmt, const std::vector<prioritized_t>& varnames) = 0;
     // virtual void declare(const std::string& key, const std::string& value) = 0;
     virtual void declare_aspects(const std::vector<std::string>& aspects) = 0;
     virtual ref fit(const std::vector<std::string>& sources) = 0;
@@ -103,6 +99,7 @@ struct st_c {
 
 struct var_t: public st_t {
     std::string varname;
+    int priority{0};
     var_t(const std::string& varname_in) : varname(varname_in) {}
     virtual std::string to_string() override {
         return std::string("'") + varname;
@@ -217,16 +214,16 @@ struct aspects_t: public st_t {
     }
 };
 
-// as { "%u/%u/%u", year, month, day };
+// as { "%u/%u/%u", year(0), month(1), day(2) };
 struct as_t: public st_t {
     std::string fmt;
-    std::vector<std::string> fields;
-    as_t(const std::string& fmt_in, const std::vector<std::string>& fields_in) : fmt(fmt_in), fields(fields_in) {}
+    std::vector<prioritized_t> fields;
+    as_t(const std::string& fmt_in, const std::vector<prioritized_t>& fields_in) : fmt(fmt_in), fields(fields_in) {}
     virtual std::string to_string() override {
         if (fields.size() == 0) return "as \"" + fmt + "\"";
         std::string s = "as { \"" + fmt + "\", ";
         for (size_t i = 0; i < fields.size(); ++i) {
-            s += (i ? ", " : "") + fields[i];
+            s += (i ? ", " : "") + fields[i].to_string();
         }
         return s + " }";
     }

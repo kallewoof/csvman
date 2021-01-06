@@ -59,26 +59,26 @@ void document_t::align(const std::vector<std::string>& headers) {
 }
 
 void document_t::record_state(const Value& aspect_value) {
-    group_t keys;
+    group_t gk;
 
     for (const auto& v : keys) {
-        keys.values.push_back(v->imprint());
+        gk.values.push_back(v->imprint());
     }
 
-    if (aspect != "" && data.count(keys) > 0) {
+    if (aspect != "" && data.count(gk) > 0) {
         // insert aspect only and move on as the remaining data should be the same (and even if it isn't, this would simply overwrite it)
-        data[keys][aspect] = aspect_value;
+        data[gk][aspect] = aspect_value;
         return;
     }
 
-    std::map<std::string,Value>& valuemap = data[keys];
+    std::map<std::string,Value>& valuemap = data[gk];
 
     if (aspect != "") {
         valuemap[aspect] = aspect_value;
     }
 
     for (const auto &v : values) {
-        valuemap[m.first] = v->imprint();
+        valuemap[v->str] = v->imprint();
     }
 }
 
@@ -94,7 +94,9 @@ void document_t::process(const std::vector<std::string>& row) {
     // iterate
     for (size_t i = ctx->trailing->index; i < row.size(); ++i) {
         ctx->trailing->read(trail[i - ctx->trailing->index]);
-        record_state(row.at(i));
+        Value v = std::make_shared<val_t>();
+        v->value = row.at(i);
+        record_state(v);
     }
 }
 
@@ -183,23 +185,23 @@ void document_t::load_from_disk(argiter_t& argiter) {
 //     // printf(" }\n");
 // }
 
-void document_t::process(const std::map<std::string,Value>& valuemap) {
-    // update vars
-    for (const auto& m : ctx->vars) {
-        if (valuemap.count(m.first)) {
-            m.second->read(valuemap.at(m.first));
-        }
-    }
-    if (trail.size() == 0) {
-        write_state();
-        return;
-    }
-    // iterate
-    for (size_t i = ctx->trailing->index; i < row.size(); ++i) {
-        ctx->trailing->read(trail[i - ctx->trailing->index]);
-        write_state(row.at(i));
-    }
-}
+// void document_t::process(const std::map<std::string,Value>& valuemap) {
+//     // update vars
+//     for (const auto& m : ctx->vars) {
+//         if (valuemap.count(m.first)) {
+//             m.second->read(valuemap.at(m.first));
+//         }
+//     }
+//     if (trail.size() == 0) {
+//         write_state();
+//         return;
+//     }
+//     // iterate
+//     for (size_t i = ctx->trailing->index; i < row.size(); ++i) {
+//         ctx->trailing->read(trail[i - ctx->trailing->index]);
+//         write_state(row.at(i));
+//     }
+// }
 
 void document_t::write_single(const document_t& doc, FILE* fp) {
     csv writer(fp);
@@ -219,9 +221,10 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
         // load each trailing entry from doc context, convert using own context into own format, and then write to trail and row
         trail.clear();
         ctx->trailing->index = row.size();
+        size_t trailpos = doc.ctx->vars[ctx->trailing->str]->index;
         for (const auto& entry : doc.data) {
             const auto& val = entry.first.values.at(trailpos);
-            ctx->trailing->read(val);
+            ctx->trailing->read(*val);
             const auto& w = ctx->trailing->write();
             trail.push_back(w);
             row.push_back(w);
@@ -250,7 +253,7 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
         // starting point
         group_t g(doc.data.begin()->first);
         for (const auto& v : keyset) {
-            key->read(v);
+            key->read(*v);
             row[key->index] = key->write();
             g.values[idx] = v;
             size_t rowidx = pretrail;
@@ -259,13 +262,13 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
                 ctx->trailing->read(t);
                 // we are using our own imprint of the value here (e.g. 2021-01-06), but it's retaining components, so any other format should work fine
                 // e.g. if the incoming doc uses "2021/01/06".
-                g.values[trail_idx]->value = ctx->trailing->imprint();
+                g.values[trail_idx] = ctx->trailing->imprint();
                 const auto& valuemap = doc.data.at(g);
                 if (initial) {
                     for (const auto& m : valuemap) {
                         if (ctx->vars.count(m.first)) {
                             auto v = ctx->vars.at(m.first);
-                            v->read(m.second);
+                            v->read(*m.second);
                             if (!v->trails) {
                                 row[v->index] = v->write();
                             }
@@ -289,9 +292,9 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
         for (const auto& m : ctx->vars) {
             Var v = m.second;
             if (v->key) {
-                v->read(entry.first.values.at(kiter++));
+                v->read(*entry.first.values.at(kiter++));
             } else {
-                v->read(entry.second[m.first]);
+                v->read(*entry.second.at(m.first));
             }
             if (v->index > -1) row[v->index] = v->write();
         }
@@ -308,7 +311,7 @@ void document_t::save_data_to_disk(const document_t& doc, const std::string& pat
     for (const auto& v : ctx->vars) {
         if (!v.second->trails) {
             v.second->index = index++;
-            aligned.push_back(v);
+            aligned.push_back(v.second);
         }
     }
     if (ctx->trailing) ctx->trailing->index = index;
@@ -318,7 +321,7 @@ void document_t::save_data_to_disk(const document_t& doc, const std::string& pat
     }
 
     if (ctx->aspects.size() > 0) {
-        std::string basename = path.length > 4 && path.substr(path.length - 4) == ".csv" ? path.substr(0, path.length - 4) : path;
+        std::string basename = path.length() > 4 && path.substr(path.length() - 4) == ".csv" ? path.substr(0, path.length() - 4) : path;
         for (size_t i = 0; i < ctx->aspects.size(); ++i) {
             aspect = ctx->aspects[i];
             write_single(doc, fopen_or_die((basename + "_" + aspect + ".csv").c_str(), fmode_writing));
@@ -331,19 +334,19 @@ void document_t::save_data_to_disk(const document_t& doc, const std::string& pat
 void document_t::create_index(size_t group_index, std::set<Value>& dest, Var formatter) const {
     dest.clear();
     for (const auto& entry : data) {
-        formatter->read(entry.first.values.at(group_index));
-        dest.push_back(formatter->imprint());
+        formatter->read(*entry.first.values.at(group_index));
+        dest.insert(formatter->imprint());
     }
 }
 
-void document_t::transform_group(const document_t& maker, group_t& group) const {
-    // TODO: optimize
-    group_t cp(group);
-    size_t maker_i = 0;
-    for (const auto& maker_var : maker.ctx->vars) {
-        if (maker_i != ctx->vars.at(maker_var.first)->)
-    }
-}
+// void document_t::transform_group(const document_t& maker, group_t& group) const {
+//     // TODO: optimize
+//     group_t cp(group);
+//     size_t maker_i = 0;
+//     for (const auto& maker_var : maker.ctx->vars) {
+//         if (maker_i != ctx->vars.at(maker_var.first)->)
+//     }
+// }
 
 Context CompileCMF(FILE* fp) {
     size_t cap = 128;

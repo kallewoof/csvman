@@ -3,15 +3,12 @@
 
 #include "parser/parser.h"
 
-struct comp_t {
-    std::string label;
-    int priority{0};
-};
+using parser::prioritized_t;
 
 struct val_t {
     std::string value;
     std::vector<std::string> alternatives;
-    std::map<std::string, comp_t> comps;
+    std::map<std::string, prioritized_t> comps;
     bool operator<(const val_t& other) const;
     std::string to_string() const;
 };
@@ -22,7 +19,7 @@ struct var_t {
     std::string str; // this is the string associated with this variable, e.g. "date" or "Province/Region".
     std::string value; // this is the actual value at the moment (e.g. "2021-01-05")
     std::vector<std::shared_ptr<var_t>> fit; // this is a fit vector for combining multiple fields
-    std::map<std::string, comp_t> comps;
+    std::map<std::string, std::string> comps;
     int index{-1};
     bool trails{false};
     bool key{false};
@@ -30,7 +27,7 @@ struct var_t {
 
     parser::ref pref{0};
     std::string fmt;
-    std::vector<std::string> varnames;
+    std::vector<prioritized_t> varnames;
     var_t(const std::string& str_in = "") : str(str_in) {}
     var_t(const std::string& str_in, bool numeric_in) : str(str_in), numeric(numeric_in) {}
     void read(const std::string& input);
@@ -91,7 +88,7 @@ struct env_t: public parser::st_callback_table {
     void save(const std::string& variable, const Var& value);
     void save(const std::string& variable, parser::ref value) override;
     parser::ref constant(const std::string& value, parser::token_type type) override;
-    parser::ref scanf(const std::string& input, const std::string& fmt, const std::vector<std::string>& varnames) override;
+    parser::ref scanf(const std::string& input, const std::string& fmt, const std::vector<prioritized_t>& varnames) override;
     // void declare(const std::string& key, const std::string& value) override;
     void declare_aspects(const std::vector<std::string>& aspects) override;
     parser::ref fit(const std::vector<std::string>& sources) override;

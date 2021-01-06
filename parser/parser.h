@@ -41,7 +41,7 @@ ST parse_value(cache_map& cache, Token& s);
 ST parse_field(cache_map& cache, Token& s);
 ST parse_set(cache_map& cache, Token& s);
 ST parse_declarations(cache_map& cache, Token& s);
-ST parse_fit(cache_map& cache, Token& s);
+// ST parse_fit(cache_map& cache, Token& s);
 ST parse_key(cache_map& cache, Token& s);
 
 } // namespace parser

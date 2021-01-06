@@ -47,7 +47,7 @@ ref env_t::constant(const std::string& value, token_type type) {
     return ctx->temps.emplace(value, type == parser::tok_number);
 }
 
-ref env_t::scanf(const std::string& input, const std::string& fmt, const std::vector<std::string>& varnames) {
+ref env_t::scanf(const std::string& input, const std::string& fmt, const std::vector<prioritized_t>& varnames) {
     Var tmp = std::make_shared<var_t>(input);
     tmp->fmt = fmt;
     tmp->varnames = varnames;
@@ -161,7 +161,7 @@ void var_t::read(const std::string& input_string) {
             if (!scan(*set, stopper, pos, buf, decimal)) {
                 throw std::runtime_error(std::string("failed to scan %") + ch + " from input " + input_string.data() + " near " + pos);
             }
-            comps[varnames[varnamepos++]] = buf;
+            comps[varnames[varnamepos++].label] = buf;
             if (varnamepos == varnames.size()) return;
             fmtflag = false;
         } else if (ch == '%') {
@@ -172,14 +172,18 @@ void var_t::read(const std::string& input_string) {
         }
     }
 
-    if (varnamepos < varnames.size()) throw std::runtime_error("input ended before scanning variable " + varnames[varnamepos] + " in " + input_string + " for format " + fmt);
+    if (varnamepos < varnames.size()) throw std::runtime_error("input ended before scanning variable " + varnames[varnamepos].label + " in " + input_string + " for format " + fmt);
 }
 
 Value var_t::imprint() const {
     Value val = std::make_shared<val_t>();
     val->value = value;
     if (fmt.size() > 0) {
-        val->comps = comps;
+        val->comps.clear();
+        for (size_t i = 0; i < varnames.size(); ++i) {
+            val->comps[varnames[i].label] = prioritized_t(comps.at(varnames[i].label), varnames.at(i).priority);
+        }
+        // val->comps = comps;
         return val;
     }
     if (fit.size() > 0) {
@@ -196,7 +200,10 @@ void var_t::read(const val_t& val) {
     if (val.comps.size() == 0) {
         value = val.value;
     } else {
-        comps = val.comps;
+        comps.clear();
+        for (size_t i = 0; i < varnames.size(); ++i) {
+            comps[varnames[i].label] = val.comps.at(varnames[i].label).label;
+        }
         value = write();
     }
 }
@@ -212,7 +219,7 @@ std::string var_t::write() const {
                 if (ch == '%') {
                     rv += '%';
                 } else {
-                    rv += comps.at(varnames.at(varnamepos++));
+                    rv += comps.at(varnames.at(varnamepos++).label);
                 }
                 fmtflag = false;
             } else if (ch == '%') {
@@ -254,7 +261,7 @@ std::string val_t::to_string() const {
     std::string s = "";
     if (comps.size() > 0) {
         for (const auto& c : comps) {
-            s += (s == "" ? "" : ", ") + c.first + "=" + c.second;
+            s += (s == "" ? "" : ", ") + c.first + "=" + c.second.to_string();
         }
         return "{ " + s + " }";
     }
@@ -287,9 +294,17 @@ bool val_t::operator<(const val_t& other) const {
     std::vector<std::string> a, b;
     if (alternatives.size() == 0) {
         if (comps.size() > 0) {
+            std::vector<std::string> order;
+            order.resize(comps.size());
+            size_t idx = 0;
             for (const auto& i : comps) {
-                if (i.second < other.comps.at(i.first)) return true;
-                if (other.comps.at(i.first) < i.second) return false;
+                order[i.second.priority] = i.second.label;
+            }
+            for (size_t i = 0; i < idx; ++i) {
+                const auto& a = comps.at(order[i]).label;
+                const auto& b = other.comps.at(order[i]).label;
+                if (a < b) return true;
+                if (b < a) return false;
             }
             return false;
         }

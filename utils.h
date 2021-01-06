@@ -6,7 +6,7 @@
 struct argiter_t {
     int argc, argi;
     const char** argv;
-    argiter_t(int argc_in, const char* argv_in[]) : argc(argc_in), argv(argv_in), argi(0) {}
+    argiter_t(int argc_in, const char* argv_in[]) : argc(argc_in), argv(argv_in), argi(1) {}
     const char* next() {
         if (argc == argi) throw std::runtime_error("argument overflow");
         return argv[argi++];

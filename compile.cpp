@@ -30,6 +30,5 @@ int main(int argc, const char* argv[]) {
     doc.load_from_disk(argiter);
 
     document_t doc2(argiter.next());
-
-    // fp = fopen_or_die(argv[4], fmode_writing);
+    doc2.save_data_to_disk(doc, argiter.next());
 }

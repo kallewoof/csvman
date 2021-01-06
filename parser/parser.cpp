@@ -33,6 +33,10 @@ ST parse_variable(cache_map& cache, Token& s) {
     if (s->token == tok_symbol) {
         var_t* t = new var_t(s->value);
         s = s->next;
+        if (s && s->next && s->next->next && s->token == tok_lparen && s->next->token == tok_number && s->next->next->token == tok_rparen) {
+            t->priority = atoi(s->next->value);
+            s = s->next->next->next;
+        }
         return t;
     }
     return nullptr;
@@ -48,16 +52,19 @@ ST parse_value(cache_map& cache, Token& s) {
     return nullptr;
 }
 
-std::vector<std::string> parse_symbol_list(cache_map& cache, Token& s) {
+std::vector<prioritized_t> parse_symbol_list(cache_map& cache, Token& s) {
     // tok_symbol tok_comma ...
     DEBUG_PARSER("symbol_list");
-    std::vector<std::string> values;
+    std::vector<prioritized_t> values;
     Token r = s;
+    int last_pri = -1;
 
     while (r) {
         var_t* next = (var_t*)parse_variable(cache, r);
         if (!next) break;
-        values.push_back(next->varname);
+        if (next->priority == 0 && last_pri > 0) next->priority = ++last_pri;
+        values.emplace_back(next->varname, next->priority);
+        delete next;
         if (!r || r->token != tok_comma) break;
         r = r->next;
     }
@@ -67,9 +74,6 @@ std::vector<std::string> parse_symbol_list(cache_map& cache, Token& s) {
 }
 
 ST parse_field(cache_map& cache, Token& s) {
-    if (s && s->value && !strncmp("*", s->value, 1)) {
-        printf("*\n");
-    }
     // value "as" lcurly CSV rcurly
     DEBUG_PARSER("field");
     Token r = s;
@@ -120,8 +124,10 @@ ST parse_declarations(cache_map& cache, Token& s) {
         // aspects A, B, ...
         auto aspects = parse_symbol_list(cache, r);
         if (aspects.size() < 2) return nullptr;
+        std::vector<std::string> labels;
+        for (const auto& p : aspects) labels.emplace_back(p.label);
         s = r;
-        return new aspects_t(aspects);
+        return new aspects_t(labels);
     }
 
     // if (type == "layout") {
@@ -136,15 +142,15 @@ ST parse_declarations(cache_map& cache, Token& s) {
     return nullptr;
 }
 
-ST parse_fit(cache_map& cache, Token& s) {
-    DEBUG_PARSER("fit");
-    Token r = s;
-    if (!parse_keyword(cache, r, "fit")) return nullptr;
-    auto fits = parse_symbol_list(cache, r);
-    if (fits.size() < 2) return nullptr;
-    s = r;
-    return new fit_t(fits);
-}
+// ST parse_fit(cache_map& cache, Token& s) {
+//     DEBUG_PARSER("fit");
+//     Token r = s;
+//     if (!parse_keyword(cache, r, "fit")) return nullptr;
+//     auto fits = parse_symbol_list(cache, r);
+//     if (fits.size() < 2) return nullptr;
+//     s = r;
+//     return new fit_t(fits);
+// }
 
 ST parse_key(cache_map& cache, Token& s) {
     DEBUG_PARSER("key");
@@ -161,14 +167,14 @@ ST parse_expr(cache_map& cache, Token& s) {
     ST x;
     Token pcv = s;
     if (cache.count(pcv)) return cache.at(pcv)->hit(s);
-    // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical, foobar38 as "%u", foobar38 as { "%u-%u-%u", a, b, c }
+    // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical, foobar38 as "%u", foobar38 as { "%u-%u-%u", a(0), b(1), c(2) }
     try(parse_field);
     // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical
     try(parse_declarations);
     // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38
     try(parse_key);
     // foobar38, "foobar", 38, foobar38 = [...], fit ...
-    try(parse_fit);
+    // try(parse_fit);
     // foobar38, "foobar", 38, foobar38 = [...]
     try(parse_set);
     // foobar38, "foobar", 38

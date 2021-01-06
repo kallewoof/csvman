@@ -59,7 +59,7 @@ public:
 
     void load_from_disk(argiter_t& argiter);
 
-    void import_data(const document_t& doc);
+    void import_data(const document_t& source, import_mode = import_mode::replace);
 
     void save_data_to_disk(const document_t& doc, const std::string& path);
 private:
