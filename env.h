@@ -4,6 +4,7 @@
 #include "parser/parser.h"
 
 using parser::prioritized_t;
+using parser::ref;
 
 struct val_t {
     std::string value;
@@ -28,8 +29,9 @@ struct var_t {
     bool trails{false};
     bool key{false};
     bool numeric{false};
+    bool aggregates{false};
 
-    parser::ref pref{0};
+    ref pref{0};
     std::string fmt;
     std::vector<prioritized_t> varnames;
     var_t(const std::string& str_in = "") : str(str_in) {}
@@ -49,19 +51,19 @@ struct tempstore_t {
     tempstore_t() {
         store.push_back(Var(nullptr));
     }
-    parser::ref pass(Var& v) {
+    ref pass(Var& v) {
         if (v->pref) return v->pref;
         store.push_back(v);
         return store.size() - 1;
     }
-    parser::ref retain(const Var& v) {
+    ref retain(const Var& v) {
         store.push_back(v);
         return store.size() - 1;
     }
-    parser::ref emplace(const std::string& value, bool numeric = false) {
+    ref emplace(const std::string& value, bool numeric = false) {
         return retain(std::make_shared<var_t>(value, numeric));
     }
-    inline Var& pull(parser::ref r) {
+    inline Var& pull(ref r) {
         for (;;) {
             Var v = store[r];
             if (v->pref && v->pref != r) { r = v->pref; continue; }
@@ -75,7 +77,8 @@ struct context_t {
     std::map<std::string,Var> vars;
     std::map<Var,std::string> varnames;
     std::map<std::string,std::string> links;
-    std::vector<std::string> aspects;
+    std::vector<prioritized_t> aspects;
+    std::string aspect_source;
     Var trailing;
     tempstore_t temps;
 };
@@ -89,13 +92,14 @@ struct env_t: public parser::st_callback_table {
         ctx = std::make_shared<context_t>();
     }
 
-    parser::ref load(const std::string& variable) override;
+    ref load(const std::string& variable) override;
     void save(const std::string& variable, const Var& value);
-    void save(const std::string& variable, parser::ref value) override;
-    parser::ref constant(const std::string& value, parser::token_type type) override;
-    parser::ref scanf(const std::string& input, const std::string& fmt, const std::vector<prioritized_t>& varnames) override;
+    void save(const std::string& variable, ref value) override;
+    ref constant(const std::string& value, parser::token_type type) override;
+    ref scanf(const std::string& input, const std::string& fmt, const std::vector<prioritized_t>& varnames) override;
+    ref sum(ref value) override;
     // void declare(const std::string& key, const std::string& value) override;
-    void declare_aspects(const std::vector<std::string>& aspects) override;
-    parser::ref fit(const std::vector<std::string>& sources) override;
-    parser::ref key(parser::ref source) override;
+    void declare_aspects(const std::vector<prioritized_t>& aspects, const std::string& source) override;
+    ref fit(const std::vector<std::string>& sources) override;
+    ref key(ref source) override;
 };

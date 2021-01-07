@@ -36,8 +36,9 @@ void parse_done(std::vector<ST>& parsed);
 
 ST parse_expr(cache_map& cache, Token& s);
 
-ST parse_variable(cache_map& cache, Token& s);
+ST parse_variable(cache_map& cache, Token& s, bool allow_priority = false);
 ST parse_value(cache_map& cache, Token& s);
+ST parse_sum(cache_map& cache, Token& s);
 ST parse_field(cache_map& cache, Token& s);
 ST parse_set(cache_map& cache, Token& s);
 ST parse_declarations(cache_map& cache, Token& s);

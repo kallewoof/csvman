@@ -28,12 +28,12 @@ bool parse_keyword(cache_map& cache, Token& r, const std::string& keyword) {
     return rv;
 }
 
-ST parse_variable(cache_map& cache, Token& s) {
+ST parse_variable(cache_map& cache, Token& s, bool allow_priority) {
     DEBUG_PARSER("variable");
     if (s->token == tok_symbol) {
         var_t* t = new var_t(s->value);
         s = s->next;
-        if (s && s->next && s->next->next && s->token == tok_lparen && s->next->token == tok_number && s->next->next->token == tok_rparen) {
+        if (allow_priority && s && s->next && s->next->next && s->token == tok_lparen && s->next->token == tok_number && s->next->next->token == tok_rparen) {
             t->priority = atoi(s->next->value);
             s = s->next->next->next;
         }
@@ -52,6 +52,20 @@ ST parse_value(cache_map& cache, Token& s) {
     return nullptr;
 }
 
+ST parse_sum(cache_map& cache, Token& s) {
+    DEBUG_PARSER("sum");
+    if (s->next && s->next->next && s->next->next->next && s->token == tok_symbol && s->next->token == tok_lparen) {
+        if (std::string("sum") != s->value) return nullptr;
+        Token r = s->next->next;
+        ST v = parse_variable(cache, r);
+        if (!v) return nullptr;
+        if (!r || r->token != tok_rparen) { delete v; return nullptr; }
+        sum_t* rv = new sum_t(v);
+        s = r->next;
+        return rv;
+    }
+}
+
 std::vector<prioritized_t> parse_symbol_list(cache_map& cache, Token& s) {
     // tok_symbol tok_comma ...
     DEBUG_PARSER("symbol_list");
@@ -60,7 +74,7 @@ std::vector<prioritized_t> parse_symbol_list(cache_map& cache, Token& s) {
     int last_pri = -1;
 
     while (r) {
-        var_t* next = (var_t*)parse_variable(cache, r);
+        var_t* next = (var_t*)parse_variable(cache, r, true);
         if (!next) break;
         if (next->priority == 0 && last_pri > 0) next->priority = ++last_pri;
         values.emplace_back(next->varname, next->priority);
@@ -121,13 +135,19 @@ ST parse_declarations(cache_map& cache, Token& s) {
     delete var;
 
     if (type == "aspects") {
-        // aspects A, B, ...
+        // aspects A, B, ... [= X]
         auto aspects = parse_symbol_list(cache, r);
         if (aspects.size() < 2) return nullptr;
-        std::vector<std::string> labels;
-        for (const auto& p : aspects) labels.emplace_back(p.label);
+        std::string source;
+        if (r && r->next && r->token == tok_set) {
+            r = r->next;
+            var_t* var = (var_t*)parse_variable(cache, r);
+            if (!var) return nullptr;
+            source = var->varname;
+            delete var;
+        }
         s = r;
-        return new aspects_t(labels);
+        return new aspects_t(aspects, source);
     }
 
     // if (type == "layout") {
@@ -167,6 +187,8 @@ ST parse_expr(cache_map& cache, Token& s) {
     ST x;
     Token pcv = s;
     if (cache.count(pcv)) return cache.at(pcv)->hit(s);
+    // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical, foobar38 as "%u", foobar38 as { "%u-%u-%u", a(0), b(1), c(2) }, sum(x)
+    try(parse_sum);
     // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical, foobar38 as "%u", foobar38 as { "%u-%u-%u", a(0), b(1), c(2) }
     try(parse_field);
     // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical

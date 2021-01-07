@@ -4,8 +4,7 @@
 #include "env.h"
 #include "utils.h"
 
-using ref = parser::ref;
-using token_type = parser::token_type;
+using parser::token_type;
 
 ref env_t::load(const std::string& variable) {
     if (ctx->vars.count(variable) == 0) {
@@ -13,7 +12,6 @@ ref env_t::load(const std::string& variable) {
     }
     return ctx->temps.pass(ctx->vars.at(variable));
 }
-
 
 void env_t::save(const std::string& variable, const Var& value) {
     printf("  [] %s = %s\n", variable.c_str(), value->to_string().c_str());
@@ -56,6 +54,13 @@ ref env_t::scanf(const std::string& input, const std::string& fmt, const std::ve
     return ctx->temps.pass(tmp);
 }
 
+ref env_t::sum(ref value) {
+    Var tmp = std::make_shared<var_t>(*ctx->temps.pull(value));
+    if (tmp->aggregates) throw std::runtime_error("invalid operation (aggregating variable cannot be aggregated further)");
+    tmp->aggregates = true;
+    return ctx->temps.pass(tmp);
+}
+
 // void env_t::declare(const std::string& key, const std::string& value) {
 //     if (key == "layout") {
 //         if (value == "vertical") ctx->layout = layout_t::vertical;
@@ -66,9 +71,10 @@ ref env_t::scanf(const std::string& input, const std::string& fmt, const std::ve
 //     throw std::runtime_error("unknown declaration key " + key);
 // }
 
-void env_t::declare_aspects(const std::vector<std::string>& aspects) {
+void env_t::declare_aspects(const std::vector<prioritized_t>& aspects, const std::string& source) {
     if (ctx->aspects.size() > 0) throw std::runtime_error("multiple aspects statements are invalid");
     ctx->aspects = aspects;
+    ctx->aspect_source = source;
 }
 
 ref env_t::fit(const std::vector<std::string>& sources) {

@@ -73,7 +73,7 @@ public:
     void save_data_to_disk(const document_t& doc, const std::string& path);
 private:
     Context ctx;
-    std::vector<Var> keys, values, aligned;
+    std::vector<Var> keys, values, aligned, aggregates;
     std::map<std::string, int> key_indices;
     std::vector<std::string> trail; // for formats with a trail (header contains e.g. dates in a trail going right), this contains the header values
 

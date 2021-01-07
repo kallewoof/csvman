@@ -105,6 +105,7 @@ document_t::document_t(const char* path) {
             keys.push_back(v);
         } else {
             values.push_back(v);
+            if (v->aggregates) aggregates.push_back(v);
         }
     }
 }
@@ -133,7 +134,8 @@ void document_t::record_state(const Value& aspect_value) {
         gk.values.push_back(v->imprint());
     }
 
-    if (aspect != "" && data.count(gk) > 0) {
+    bool existed = data.count(gk) > 0;
+    if (aspect != "" && existed && aggregates.size() == 0) {
         // insert aspect only and move on as the remaining data should be the same (and even if it isn't, this would simply overwrite it)
         data[gk][aspect] = aspect_value;
         return;
@@ -145,8 +147,15 @@ void document_t::record_state(const Value& aspect_value) {
         valuemap[aspect] = aspect_value;
     }
 
-    for (const auto &v : values) {
-        valuemap[ctx->varnames[v]] = v->imprint();
+    if (existed) {
+        // aggregate
+        for (const auto &v : aggregates) {
+            valuemap[ctx->varnames[v]]->value = std::to_string(valuemap[ctx->varnames[v]]->int64() + v->imprint()->int64());
+        }
+    } else {
+        for (const auto &v : values) {
+            valuemap[ctx->varnames[v]] = v->imprint();
+        }
     }
 }
 
@@ -156,7 +165,7 @@ void document_t::process(const std::vector<std::string>& row) {
         v->read(row.at(v->index));
     }
     if (trail.size() == 0) {
-        record_state();
+        record_state(ctx->aspect_source != "" ? ctx->vars[ctx->aspect_source]->imprint() : nullptr);
         return;
     }
     // iterate
@@ -208,7 +217,8 @@ void document_t::load_from_disk(cliargs& argiter) {
     if (ctx->aspects.size() > 0) {
         // aspect based which means path is multiple files
         for (size_t i = 0; i < ctx->aspects.size(); ++i) {
-            aspect = ctx->aspects[i];
+            if (ctx->aspects[i].priority == -1) continue;
+            aspect = ctx->aspects[i].label;
             load_single(fopen_or_die(argiter.next(), fmode_reading));
         }
     } else {
@@ -344,7 +354,8 @@ void document_t::save_data_to_disk(const document_t& doc, const std::string& pat
     if (ctx->aspects.size() > 0) {
         std::string basename = path.length() > 4 && path.substr(path.length() - 4) == ".csv" ? path.substr(0, path.length() - 4) : path;
         for (size_t i = 0; i < ctx->aspects.size(); ++i) {
-            aspect = ctx->aspects[i];
+            if (ctx->aspects[i].priority == -1) continue;
+            aspect = ctx->aspects[i].label;
             write_single(doc, fopen_or_die((basename + "_" + aspect + ".csv").c_str(), fmode_writing));
         }
     } else {

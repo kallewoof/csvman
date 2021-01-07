@@ -23,8 +23,9 @@ struct st_callback_table {
     virtual void save(const std::string& variable, ref value) = 0;
     virtual ref  constant(const std::string& value, token_type type) = 0;
     virtual ref scanf(const std::string& input, const std::string& fmt, const std::vector<prioritized_t>& varnames) = 0;
+    virtual ref sum(ref value) = 0;
     // virtual void declare(const std::string& key, const std::string& value) = 0;
-    virtual void declare_aspects(const std::vector<std::string>& aspects) = 0;
+    virtual void declare_aspects(const std::vector<prioritized_t>& aspects, const std::string& source) = 0;
     virtual ref fit(const std::vector<std::string>& sources) = 0;
     virtual ref key(ref source) = 0;
 };
@@ -196,21 +197,22 @@ struct set_t: public st_t {
 // };
 
 struct aspects_t: public st_t {
-    std::vector<std::string> aspects;
-    aspects_t(const std::vector<std::string>& aspects_in) : aspects(aspects_in) {}
+    std::vector<prioritized_t> aspects;
+    std::string source;
+    aspects_t(const std::vector<prioritized_t>& aspects_in, const std::string& source_in) : aspects(aspects_in), source(source_in) {}
     virtual std::string to_string() override {
         std::string s = "aspects ";
         for (size_t i = 0; i < aspects.size(); ++i) {
-            s += (i ? ", " : "") + aspects[i];
+            s += (i ? ", " : "") + aspects[i].to_string();
         }
-        return s;
+        return s + (source.size() ? " = " + source : "");
     }
     virtual ref eval(st_callback_table* ct) override {
-        ct->declare_aspects(aspects);
+        ct->declare_aspects(aspects, source);
         return nullref;
     }
     virtual ST clone() override {
-        return new aspects_t(aspects);
+        return new aspects_t(aspects, source);
     }
 };
 
@@ -248,6 +250,22 @@ struct field_t: public st_t {
     }
     virtual ST clone() override {
         return new field_t(value, (as_t*) as->clone());
+    }
+};
+
+// sum(x)
+struct sum_t: public st_t {
+    st_c aggregate;
+    sum_t(st_c aggregate_in) : aggregate(aggregate_in) {}
+    virtual std::string to_string() override {
+        return "sum(" + aggregate.r->to_string() + ")";
+    }
+    virtual ref eval(st_callback_table* ct) override {
+        ref result = aggregate.r->eval(ct);
+        return ct->sum(result);
+    }
+    virtual ST clone() override {
+        return new sum_t(aggregate.clone());
     }
 };
 
