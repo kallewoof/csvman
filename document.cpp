@@ -43,6 +43,40 @@ FILE* fopen_or_die(const char* fname, bool reading) {
     return fp;
 }
 
+Context CompileCMF(FILE* fp) {
+    size_t cap = 128;
+    size_t rem = 128;
+    size_t read;
+    char* buf = (char*)malloc(cap);
+    char* pos = buf;
+    while (0 < (read = fread(pos, 1, rem, fp))) {
+        if (read < rem) {
+            break;
+        }
+        pos += read;
+        cap <<= 1;
+        read = pos - buf;
+        buf = (char*)realloc(buf, cap);
+        pos = buf + read;
+        rem = cap - read;
+    }
+
+    Token t = parser::tokenize(buf);
+    free(buf);
+
+    std::vector<parser::ST> program = parser::parse_alloc(t);
+
+    env_t e;
+
+    uint32_t lineno = 0;
+    for (auto& line : program) {
+        // printf("%03u %s\n", ++lineno, line->to_string().c_str());
+        line->eval(&e);
+        delete line;
+    }
+
+    return e.ctx;
+}
 group_t group_t::iterate(size_t index, Value v) const {
     group_t g(*this);
     g.values[index] = v;
@@ -57,6 +91,7 @@ group_t group_t::exclude(size_t index) const {
 
 document_t::document_t(const char* path) {
     if (!verified) verify();
+    cmf_path = path;
     FILE* fp = fopen_or_die(path, fmode_reading);
     ctx = CompileCMF(fp);
     fclose(fp);
@@ -317,6 +352,10 @@ void document_t::save_data_to_disk(const document_t& doc, const std::string& pat
     }
 }
 
+void document_t::save_data_to_disk(const std::string& path) {
+    save_data_to_disk(*this, path);
+}
+
 void document_t::create_index(size_t group_index, std::set<val_t>& dest, Var formatter) const {
     dest.clear();
     for (const auto& entry : data) {
@@ -325,37 +364,32 @@ void document_t::create_index(size_t group_index, std::set<val_t>& dest, Var for
     }
 }
 
-Context CompileCMF(FILE* fp) {
-    size_t cap = 128;
-    size_t rem = 128;
-    size_t read;
-    char* buf = (char*)malloc(cap);
-    char* pos = buf;
-    while (0 < (read = fread(pos, 1, rem, fp))) {
-        if (read < rem) {
-            break;
-        }
-        pos += read;
-        cap <<= 1;
-        read = pos - buf;
-        buf = (char*)realloc(buf, cap);
-        pos = buf + read;
-        rem = cap - read;
+void import_data(const std::vector<Document>& sources, import_mode mode = import_mode::replace, const std::string& import_param) {
+    switch (mode) {
+    case import_mode::replace:
+        if (sources.size() != 1) throw std::runtime_error("replace mode only works with single sources");
+        data = sources.back()->data;
+        return;
+    case import_mode::merge_source:
+        // Replace all values in destination which also exist in source, keeping only distinct values.
+        
+        break;
+    case import_mode::merge_dest:
+        // Insert values not previously found, and keep existing values.
+        break;
+    case import_mode::merge_average:
+        // For any values existing in both documents, (1) for numeric values, take the average of the
+        // two as the resulting value; (2) for non-numeric values, keep the existing value.
+        break;
+    case import_mode::merge_forward:
+        // Given the parameter key, (1) calculate the maximum value of key inside destination,
+        // (2) merge values from source iff the value of the parameter key is greater than the
+        // maximum in (1).
+        break;
+    default: throw std::runtime_error("unknown import mode");
     }
+}
 
-    Token t = parser::tokenize(buf);
-    free(buf);
+void import(const std::vector<Document>& sources, const group_t& entry, import_mode mode, const std::string& import_param) {
 
-    std::vector<parser::ST> program = parser::parse_alloc(t);
-
-    env_t e;
-
-    uint32_t lineno = 0;
-    for (auto& line : program) {
-        // printf("%03u %s\n", ++lineno, line->to_string().c_str());
-        line->eval(&e);
-        delete line;
-    }
-
-    return e.ctx;
 }

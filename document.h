@@ -41,13 +41,18 @@ enum class import_mode {
     merge_forward   = 4,
 };
 
+typedef std::shared_ptr<document_t> Document;
+
 class document_t {
 public:
     std::map<group_t, std::map<std::string, Value>> data;
     std::string aspect;
 
+    std::string cmf_path;
+
     document_t(Context ctx_in) : ctx(ctx_in) {}
     document_t(const char* path);
+    document_t() : ctx(nullptr) {}
 
     // align var names to header indices in a document (e.g. a CSV file's first line)
     void align(const std::vector<std::string>& headers);
@@ -59,7 +64,9 @@ public:
 
     void load_from_disk(cliargs& argiter);
 
-    void import_data(const document_t& source, import_mode = import_mode::replace);
+    void import_data(const std::vector<Document>& sources, import_mode mode = import_mode::replace, const std::string& import_param = "");
+
+    void save_data_to_disk(const std::string& path);
 
     void save_data_to_disk(const document_t& doc, const std::string& path);
 private:
@@ -72,6 +79,7 @@ private:
     void write_single(const document_t& doc, FILE* fp);
 
     void create_index(size_t group_index, std::set<val_t>& dest, Var formatter) const;
+    void import(const std::vector<Document>& sources, const group_t& entry, import_mode mode, const std::string& import_param);
 };
 
 Context CompileCMF(FILE* fp);
@@ -80,5 +88,14 @@ constexpr bool fmode_reading = true;
 constexpr bool fmode_writing = false;
 
 FILE* fopen_or_die(const char* fname, bool reading);
+
+inline import_mode parse_import_mode(const std::string& mode) {
+    if (mode == "replace") return import_mode::replace;
+    if (mode == "merge-source") return import_mode::merge_source;
+    if (mode == "merge-dest") return import_mode::merge_dest;
+    if (mode == "merge_average") return import_mode::merge_average;
+    if (mode == "merge-forward") return import_mode::merge_forward;
+    throw std::runtime_error("unknown import mode " + mode);
+}
 
 #endif // included_document_h_
