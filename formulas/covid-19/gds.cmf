@@ -11,7 +11,3 @@ region = "Country/Region";
 confirmed = "Confirmed";
 recovered = "Recovered";
 deaths = "Deaths";
-
-# coords are missing in this dataset so these are hard coded to the int value 0
-lat = 0;
-long = 0;

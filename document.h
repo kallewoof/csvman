@@ -41,6 +41,8 @@ enum class import_mode {
     merge_forward   = 4,
 };
 
+class document_t;
+
 typedef std::shared_ptr<document_t> Document;
 
 class document_t {
@@ -79,7 +81,6 @@ private:
     void write_single(const document_t& doc, FILE* fp);
 
     void create_index(size_t group_index, std::set<val_t>& dest, Var formatter) const;
-    void import(const std::vector<Document>& sources, const group_t& entry, import_mode mode, const std::string& import_param);
 };
 
 Context CompileCMF(FILE* fp);

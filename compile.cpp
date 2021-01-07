@@ -65,11 +65,11 @@ int main(int argc, const char* argv[]) {
 
     while (ca.iter < source_end) {
         sources.push_back(std::make_shared<document_t>(ca.next()));
-        sources.back().load_from_disk(ca);
+        sources.back()->load_from_disk(ca);
     }
 
     if (!dest) {
-        dest = std::make_shared<document_t>(sources.back().cmf_path.c_str());
+        dest = std::make_shared<document_t>(sources.back()->cmf_path.c_str());
     }
 
     dest->import_data(sources, mode, param);

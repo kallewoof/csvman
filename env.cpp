@@ -2,6 +2,7 @@
 #include <set>
 
 #include "env.h"
+#include "utils.h"
 
 using ref = parser::ref;
 using token_type = parser::token_type;
@@ -179,12 +180,12 @@ void var_t::read(const std::string& input_string) {
 Value var_t::imprint() const {
     Value val = std::make_shared<val_t>();
     val->value = value;
+    val->number = is_numeric(value.c_str());
     if (fmt.size() > 0) {
         val->comps.clear();
         for (size_t i = 0; i < varnames.size(); ++i) {
             val->comps[varnames[i].label] = prioritized_t(comps.at(varnames[i].label), varnames.at(i).priority);
         }
-        // val->comps = comps;
         return val;
     }
     if (fit.size() > 0) {

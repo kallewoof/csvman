@@ -1,7 +1,5 @@
-#ifndef included_utils_h_
-#define included_utils_h_
-
-#include <stdexcept>
+#ifndef included_cliargs_h_
+#define included_cliargs_h_
 
 #include <map>
 #include <vector>
@@ -9,19 +7,6 @@
 
 #include <cstring>
 #include <getopt.h>
-
-static inline bool is_numeric(const char* value) {
-    if (!*value) return false;
-    bool decimal = true;
-    for (; *value; ++value) {
-        if (decimal && *value == '.') {
-            decimal = false;
-        } else if (*value < '0' || *value > '9') {
-            return false;
-        }
-    }
-    return true;
-}
 
 enum cliarg_type {
     no_arg = no_argument,
@@ -51,7 +36,6 @@ struct cliargs {
     std::map<char, std::string> m;
     std::vector<const char*> l;
     std::vector<cliopt*> long_options;
-    size_t iter{0};
 
     ~cliargs() {
         while (!long_options.empty()) {
@@ -86,15 +70,6 @@ struct cliargs {
             l.push_back(argv[optind++]);
         }
     }
-
-    const char* next() {
-        if (l.size() == iter) throw std::runtime_error("argument overflow");
-        return l[iter++];
-    }
-    const char* last() {
-        if (iter == 0) throw std::runtime_error("invalid argument operation (none fetched but requesting last fetched)");
-        return l[iter - 1];
-    }
 };
 
-#endif // included_utils_h_
+#endif // included_cliargs_h_

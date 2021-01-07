@@ -364,7 +364,7 @@ void document_t::create_index(size_t group_index, std::set<val_t>& dest, Var for
     }
 }
 
-void import_data(const std::vector<Document>& sources, import_mode mode = import_mode::replace, const std::string& import_param) {
+void document_t::import_data(const std::vector<Document>& sources, import_mode mode, const std::string& import_param) {
     switch (mode) {
     case import_mode::replace:
         if (sources.size() != 1) throw std::runtime_error("replace mode only works with single sources");
@@ -372,24 +372,104 @@ void import_data(const std::vector<Document>& sources, import_mode mode = import
         return;
     case import_mode::merge_source:
         // Replace all values in destination which also exist in source, keeping only distinct values.
-        
+        {
+            for (auto it = sources.rbegin(); it != sources.rend(); ++it) {
+                Document d = *it;
+                for (const auto& k : d->data) {
+                    data[k.first] = k.second;
+                }
+            }
+        }
         break;
     case import_mode::merge_dest:
         // Insert values not previously found, and keep existing values.
+        {
+            std::set<group_t> known;
+            for (const auto& k : data) {
+                known.emplace(k.first);
+            }
+            for (auto it = sources.rbegin(); it != sources.rend(); ++it) {
+                Document d = *it;
+                for (const auto& k : d->data) {
+                    if (!known.count(k.first)) {
+                        known.insert(k.first);
+                        data[k.first] = k.second;
+                    }
+                }
+            }
+        }
         break;
     case import_mode::merge_average:
         // For any values existing in both documents, (1) for numeric values, take the average of the
         // two as the resulting value; (2) for non-numeric values, keep the existing value.
+        {
+            size_t divisor = sources.size();
+            std::set<std::string> numeric;
+            for (const auto& m : sources[0]->data.begin()->second) {
+                if (m.second->number) numeric.insert(m.first);
+            }
+            for (const auto& doc : sources) {
+                for (const auto& m : doc->data.begin()->second) {
+                    if (!m.second->number && numeric.count(m.first)) {
+                        numeric.erase(m.first);
+                    }
+                }
+            }
+
+            std::set<group_t> known;
+            for (auto it = sources.rbegin(); it != sources.rend(); ++it) {
+                Document d = *it;
+                for (const auto& k : d->data) {
+                    if (!known.count(k.first)) {
+                        data[k.first] = k.second;
+                        std::map<std::string, Value>& vm = data[k.first];
+                        for (const std::string& num : numeric) {
+                            // only support integers atm
+                            int64_t i = 0;
+                            for (const auto& d : sources) {
+                                i += d->data.at(k.first).at(num)->int64();
+                            }
+                            i /= divisor;
+                            vm[num]->value = std::to_string(i);
+                        }
+                        known.insert(k.first);
+                        data[k.first] = k.second;
+                    }
+                }
+            }
+        }
         break;
     case import_mode::merge_forward:
         // Given the parameter key, (1) calculate the maximum value of key inside destination,
         // (2) merge values from source iff the value of the parameter key is greater than the
         // maximum in (1).
+        // For 3+ documents, we assume this extends s.t. the first source appends the second,
+        // and then the 3rd, and so on, each capping the minimum value.
+        {
+            if (import_param == "") throw std::runtime_error("import param required for merge forward mode (it is the key parameter name to use)");
+            if (sources.back()->key_indices.count(import_param) == 0) throw std::runtime_error("invalid import parameter (key not found in source(s))");
+            size_t param_indice = sources.back()->key_indices[import_param];
+            data = sources[0]->data;
+            val_t highest = *data.begin()->first.values[param_indice];
+            for (const auto& k : data) {
+                const auto& v = k.first.values.at(param_indice);
+                if (highest < *v) highest = *v;
+            }
+            // now iterate in order and update the "highest" criteria for each new doc
+            for (auto it = sources.begin() + 1; it != sources.end(); ++it) {
+                Document doc = *it;
+                val_t next = highest;
+                for (const auto& k : doc->data) {
+                    const auto& v = k.first.values.at(param_indice);
+                    if (highest < *v) {
+                        data[k.first] = k.second;
+                        if (next < *v) next = *v;
+                    }
+                }
+                highest = next;
+            }
+        }
         break;
     default: throw std::runtime_error("unknown import mode");
     }
-}
-
-void import(const std::vector<Document>& sources, const group_t& entry, import_mode mode, const std::string& import_param) {
-
 }

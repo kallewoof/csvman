@@ -11,6 +11,10 @@ struct val_t {
     std::map<std::string, prioritized_t> comps;
     bool operator<(const val_t& other) const;
     std::string to_string() const;
+    bool number{false};
+    int64_t int64() {
+        return (int64_t)atoll(value.c_str());
+    }
 };
 
 typedef std::shared_ptr<val_t> Value;
