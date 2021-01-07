@@ -432,8 +432,8 @@ void document_t::import_data(const std::vector<Document>& sources, import_mode m
                             i /= divisor;
                             vm[num]->value = std::to_string(i);
                         }
-                        known.insert(k.first);
                         data[k.first] = k.second;
+                        known.insert(k.first);
                     }
                 }
             }
