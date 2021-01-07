@@ -57,7 +57,7 @@ public:
 
     void record_state(const Value& aspect_value = nullptr);
 
-    void load_from_disk(argiter_t& argiter);
+    void load_from_disk(cliargs& argiter);
 
     void import_data(const document_t& source, import_mode = import_mode::replace);
 

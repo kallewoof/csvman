@@ -6,7 +6,7 @@
 #include "utils.h"
 
 int fake_argc = 5;
-const char* fake_argv[] = {
+char * const fake_argv[] = {
     "./compile",
     "formulas/covid-19/ulklc.cmf",
     "./rawReport.csv",
@@ -17,16 +17,33 @@ const char* fake_argv[] = {
 int main(int argc, const char* argv[]) {
     #define argc fake_argc
     #define argv fake_argv
-    if (argc < 5) {
-        fprintf(stderr, "syntax: %s <input cmf file> <input csv file*> <output cmf file> <output csv file>\n", argv[0]);
-        fprintf(stderr, "for aspect-based inputs, provide one filename for each aspect, in order; aspect based outputs are written as 'name_<aspect>.csv'\n");
-        return 1;
+
+    cliargs ca;
+    ca.add_option("mode", 'm', req_arg);
+    ca.add_option("param", 'p', req_arg);
+    ca.add_option("output", 'o', req_arg);
+    ca.add_option("help", 'h', no_arg);
+    ca.add_option("verbose", 'v', no_arg);
+    ca.add_option("debug", 'D', req_arg);
+    ca.parse(argc, argv);
+    if (ca.m.count('h') || ca.l.size() < 4) {
+        fprintf(stderr, "Syntax: %s [--mode=<mode>|-m<mode> [--param=<param>|-p<param>]] <cmf file> <csv file*> [<cmf file 2> <csv file 2*> [...]] [-o <cmf file> <csv base filename>]\n", argv[0]);
+        fprintf(stderr, "For aspect-based inputs, provide one filename for each aspect, in order; aspect based outputs are written as 'name_<aspect>.csv'\n");
+        fprintf(stderr, "If no output (-o or --output) is provided, the last given specification is used to write the result to stdout.\n");
+        fprintf(stderr, "For 2 documents, the first is the source, and the second is the destination (going into the third, -o CSV file).\n");
+        fprintf(stderr, "For 3 or more documents, all documents except the last one are considered sources, and the last document is the destination.\n");
+        fprintf(stderr, "Modes:\n");
+        fprintf(stderr, "  merge-source     Replace all values in destination which also exist in source(s), keeping only distinct values.\n");
+        fprintf(stderr, "  merge-dest       Insert values not previously found, and keep existing values.\n");
+        fprintf(stderr, "  merge-avg        For any values existing in 2+ documents, (1) for numeric values, take the average of all values as resulting value,\n");
+        fprintf(stderr, "                   (2) for non-numeric values, count the occurrences and use the most frequent, or existing if all equally frequent)\n");
+        fprintf(stderr, "  merge-forward    Given the parameter key <param>, (1) calculate the maximum value of key inside destination");
+        exit(1);
     }
-    argiter_t argiter(argc, argv);
 
-    document_t doc(argiter.next());
-    doc.load_from_disk(argiter);
+    document_t doc(ca.next());
+    doc.load_from_disk(ca);
 
-    document_t doc2(argiter.next());
-    doc2.save_data_to_disk(doc, argiter.next());
+    document_t doc2(ca.next());
+    doc2.save_data_to_disk(doc, ca.next());
 }

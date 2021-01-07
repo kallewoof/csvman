@@ -169,7 +169,7 @@ void document_t::load_single(FILE* fp) {
     printf("Read %zu lines (%zu entries)\n", count, data.size());
 }
 
-void document_t::load_from_disk(argiter_t& argiter) {
+void document_t::load_from_disk(cliargs& argiter) {
     if (ctx->aspects.size() > 0) {
         // aspect based which means path is multiple files
         for (size_t i = 0; i < ctx->aspects.size(); ++i) {
@@ -180,61 +180,6 @@ void document_t::load_from_disk(argiter_t& argiter) {
         load_single(fopen_or_die(argiter.next(), fmode_reading));
     }
 }
-
-// void document_t::write_state(const std::string& aspect_value) {
-//     group_t keys;
-
-//     // printf("write state:\n");
-//     for (const auto& m : ctx->vars) {
-//         Var v = m.second;
-//         if (v->key) {
-//             keys.values.push_back(v->imprint());
-//             // printf("- key %s = %s\n", m.first.c_str(), keys.values.back()->to_string().c_str());
-//         }
-//     }
-//     // printf("-> %s [count: %lu]\n", keys.to_string().c_str(), data.count(keys));
-
-//     if (aspect != "" && data.count(keys) > 0) {
-//         // insert aspect only and move on as the remaining data should be the same (and even if it isn't, this would simply overwrite it)
-//         data[keys][aspect] = aspect_value;
-//         return;
-//     }
-
-//     std::map<std::string,std::string>& valuemap = data[keys];
-
-//     if (aspect != "") {
-//         valuemap[aspect] = aspect_value;
-//     }
-
-//     for (const auto&m : ctx->vars) {
-//         Var v = m.second;
-//         if (!v->key) valuemap[m.first] = v->write();
-//     }
-
-//     // printf("=> {");
-//     // for (const auto& m : valuemap) {
-//     //     printf("\n\t%s = %s", m.first.c_str(), m.second.c_str());
-//     // }
-//     // printf(" }\n");
-// }
-
-// void document_t::process(const std::map<std::string,Value>& valuemap) {
-//     // update vars
-//     for (const auto& m : ctx->vars) {
-//         if (valuemap.count(m.first)) {
-//             m.second->read(valuemap.at(m.first));
-//         }
-//     }
-//     if (trail.size() == 0) {
-//         write_state();
-//         return;
-//     }
-//     // iterate
-//     for (size_t i = ctx->trailing->index; i < row.size(); ++i) {
-//         ctx->trailing->read(trail[i - ctx->trailing->index]);
-//         write_state(row.at(i));
-//     }
-// }
 
 void document_t::write_single(const document_t& doc, FILE* fp) {
     csv writer(fp);
@@ -262,13 +207,6 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
             trail.push_back(w);
             row.push_back(w);
         }
-        // for (const auto& entry : doc.data) {
-        //     const auto& val = entry.first.values.at(trailpos);
-        //     ctx->trailing->read(*val);
-        //     const auto& w = ctx->trailing->write();
-        //     trail.push_back(w);
-        //     row.push_back(w);
-        // }
     }
 
     writer.write(row);
@@ -302,7 +240,6 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
         for (const auto& v : keyset) {
             key->read(v);
             row[key->index] = key->write();
-            printf("%s\n", row[key->index].c_str());
             g.values[idx] = key->imprint();
             size_t rowidx = pretrail;
             bool initial = true;
@@ -387,15 +324,6 @@ void document_t::create_index(size_t group_index, std::set<val_t>& dest, Var for
         dest.insert(*formatter->imprint());
     }
 }
-
-// void document_t::transform_group(const document_t& maker, group_t& group) const {
-//     // TODO: optimize
-//     group_t cp(group);
-//     size_t maker_i = 0;
-//     for (const auto& maker_var : maker.ctx->vars) {
-//         if (maker_i != ctx->vars.at(maker_var.first)->)
-//     }
-// }
 
 Context CompileCMF(FILE* fp) {
     size_t cap = 128;
