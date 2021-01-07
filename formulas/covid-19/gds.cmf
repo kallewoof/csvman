@@ -3,10 +3,10 @@
 
 key date = "Date" as { "%u-%u-%u", year(0), month(1), day(2) };
 
-country = "Country/Region";
-region = "Provice/State";
+key state = "Provice/State";
+region = "Country/Region";
 
-key place = fit region, country;
+# key place = fit region, country;
 
 confirmed = "Confirmed";
 recovered = "Recovered";

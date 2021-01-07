@@ -2,8 +2,37 @@
 #include "parser/tokenizer.h"
 #include "parser/parser.h"
 #include "parser/csv.h"
+#include <assert.h>
 
 using Token = parser::Token;
+
+static bool verified = false;
+static void verify() {
+    var_t date;
+
+    date.str = "*";
+    date.value = "2021-01-05";
+    date.comps["year"] = "2021";
+    date.comps["month"] = "01";
+    date.comps["day"] = "05";
+    date.fmt = "%u-%u-%u";
+    date.varnames.push_back(prioritized_t("year", 0));
+    date.varnames.push_back(prioritized_t("month", 1));
+    date.varnames.push_back(prioritized_t("day", 2));
+
+    var_t date2(date);
+    date2.value = "2021-01-06";
+    date2.comps["day"] = "06";
+
+    group_t g;
+    g.values.push_back(date.imprint());
+    group_t g2;
+    g2.values.push_back(date2.imprint());
+    assert (g<g2);
+    assert (!(g2<g));
+
+    verified = true;
+}
 
 FILE* fopen_or_die(const char* fname, bool reading) {
     FILE* fp = fopen(fname, reading ? "r" : "w");
@@ -27,16 +56,20 @@ group_t group_t::exclude(size_t index) const {
 }
 
 document_t::document_t(const char* path) {
+    if (!verified) verify();
     FILE* fp = fopen_or_die(path, fmode_reading);
     ctx = CompileCMF(fp);
     fclose(fp);
     int ki = 0;
-    for (const auto& v : ctx->vars) {
-        if (v.second->key) {
-            key_indices[v.first] = ki++;
-            keys.push_back(v.second);
+    std::set<std::string> order;
+    for (const auto& s : ctx->vars) order.insert(s.first);
+    for (const auto& vn : order) {
+        const auto& v = ctx->vars.at(vn);
+        if (v->key) {
+            key_indices[vn] = ki++;
+            keys.push_back(v);
         } else {
-            values.push_back(v.second);
+            values.push_back(v);
         }
     }
 }
@@ -78,7 +111,7 @@ void document_t::record_state(const Value& aspect_value) {
     }
 
     for (const auto &v : values) {
-        valuemap[v->str] = v->imprint();
+        valuemap[ctx->varnames[v]] = v->imprint();
     }
 }
 
@@ -206,7 +239,7 @@ void document_t::load_from_disk(argiter_t& argiter) {
 void document_t::write_single(const document_t& doc, FILE* fp) {
     csv writer(fp);
     std::vector<std::string> row;
-    size_t pretrail = doc.data.begin()->first.values.size() + doc.data.begin()->second.size() - ctx->aspects.size();
+    size_t pretrail = keys.size() + values.size() - (ctx->trailing ? 1 : 0);
 
     row.resize(pretrail);
 
@@ -220,42 +253,57 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
     if (ctx->trailing) {
         // load each trailing entry from doc context, convert using own context into own format, and then write to trail and row
         trail.clear();
-        ctx->trailing->index = row.size();
-        size_t trailpos = doc.ctx->vars[ctx->trailing->str]->index;
-        for (const auto& entry : doc.data) {
-            const auto& val = entry.first.values.at(trailpos);
-            ctx->trailing->read(*val);
+        size_t trailpos = doc.key_indices.at(ctx->varnames[ctx->trailing]);
+        std::set<val_t> tpset;
+        doc.create_index(trailpos, tpset, ctx->trailing);
+        for (const auto& v : tpset) {
+            ctx->trailing->read(v);
             const auto& w = ctx->trailing->write();
             trail.push_back(w);
             row.push_back(w);
         }
+        // for (const auto& entry : doc.data) {
+        //     const auto& val = entry.first.values.at(trailpos);
+        //     ctx->trailing->read(*val);
+        //     const auto& w = ctx->trailing->write();
+        //     trail.push_back(w);
+        //     row.push_back(w);
+        // }
     }
 
     writer.write(row);
 
+    size_t count = 0;
+
     if (ctx->trailing) {
         // we have the trailing var values; we now need to iterate over the other key(s)
         // TODO: currently only supports one other key
+        // Note: the keys array is ordered alphabetically by the variable name. Since varnames are contextual, and since the specification requires
+        // that all keys must exist in both documents and be keys, the keys vector is assumed identical between the two documents.
+        // This, idx obtained from self here, is later used in doc.keys.
         int idx = 0;
-        int trail_idx = ctx->trailing->index;
         std::string varname;
-        for (const auto& v : doc.keys) {
+        Var key;
+        for (const auto& v : keys) {
             if (!v->trails) {
-                varname = doc.ctx->varnames[v];
+                key = v;
+                varname = ctx->varnames[v];
                 break;
             }
             ++idx;
         }
-        Var key = keys[idx];
-        std::set<Value> keyset;
-        doc.create_index(idx, keyset, ctx->vars[varname]);
+        std::set<val_t> keyset;
+        doc.create_index(idx, keyset, key); // note: idx picked from *this, but used in doc; this is acceptable
+
+        int trail_idx = key_indices[ctx->varnames[ctx->trailing]];
 
         // starting point
         group_t g(doc.data.begin()->first);
         for (const auto& v : keyset) {
-            key->read(*v);
+            key->read(v);
             row[key->index] = key->write();
-            g.values[idx] = v;
+            printf("%s\n", row[key->index].c_str());
+            g.values[idx] = key->imprint();
             size_t rowidx = pretrail;
             bool initial = true;
             for (const auto& t : trail) {
@@ -280,13 +328,14 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
             }
             // completed one row; phew!
             writer.write(row);
+            ++count;
         }
+        printf("Wrote %zu lines (%zu entries)\n", count, doc.data.size());
         return;
     }
 
     // the simple case: we read each entry as it comes, and writes it out to the disk ordered as described
 
-    size_t count = 0;
     for (const auto& entry : doc.data) {
         size_t kiter = 0;
         for (const auto& m : ctx->vars) {
@@ -305,17 +354,17 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
 }
 
 void document_t::save_data_to_disk(const document_t& doc, const std::string& path) {
-    // auto-align everything; since this is always the same (since we decide the order), we only do this once
+    // align based on context list
     int index = 0;
     aligned.clear();
-    for (const auto& v : ctx->vars) {
-        if (!v.second->trails) {
-            v.second->index = index++;
-            aligned.push_back(v.second);
+    for (const auto& v : ctx->varlist) {
+        if (!v->trails) {
+            v->index = index++;
+            aligned.push_back(v);
         }
     }
     if (ctx->trailing) ctx->trailing->index = index;
-    printf("Auto-aligned vars:\n");
+    printf("Context-aligned vars:\n");
     for (const auto& v : ctx->vars) {
         printf("- %s = %s\n", v.first.c_str(), v.second->to_string().c_str());
     }
@@ -331,11 +380,11 @@ void document_t::save_data_to_disk(const document_t& doc, const std::string& pat
     }
 }
 
-void document_t::create_index(size_t group_index, std::set<Value>& dest, Var formatter) const {
+void document_t::create_index(size_t group_index, std::set<val_t>& dest, Var formatter) const {
     dest.clear();
     for (const auto& entry : data) {
         formatter->read(*entry.first.values.at(group_index));
-        dest.insert(formatter->imprint());
+        dest.insert(*formatter->imprint());
     }
 }
 

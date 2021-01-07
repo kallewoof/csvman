@@ -5,15 +5,13 @@
 #include "parser/csv.h"
 #include "utils.h"
 
-int fake_argc = 7;
+int fake_argc = 5;
 const char* fake_argv[] = {
     "./compile",
+    "formulas/covid-19/ulklc.cmf",
+    "./rawReport.csv",
     "formulas/covid-19/cssegi.cmf",
-    "./output_confirmed.csv",
-    "./output_dead.csv",
-    "./output_recovered.csv",
-    "formulas/covid-19/cssegi.cmf",
-    "foo"
+    "res.csv"
 };
 
 int main(int argc, const char* argv[]) {

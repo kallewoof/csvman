@@ -26,10 +26,11 @@ void csv::write(const std::vector<std::string>& vec) {
         const std::string& string = vec.at(i);
         const char* cs = string.c_str();
 
-        bool quote = (string.find(' ') || string.find(','));
-        if (quote) fputc('"', fp);
-
         if (i > 0) fputc(',', fp);
+
+        bool quote = (string.find(',') != std::string::npos);
+
+        if (quote) fputc('"', fp);
         while (*cs) {
             fputc(*cs, fp);
             cs++;

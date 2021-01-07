@@ -3,10 +3,10 @@
 key date = "day" as { "%u/%u/%u", year(0), month(1), day(2) };
 countryCode = "countryCode";
 
-# country = "countryName";
+key state = "countryName";
 region = "region";
 
-key place = "countryName";
+# key place = "countryName";
 # fit region, country;
 
 lat = "lat";

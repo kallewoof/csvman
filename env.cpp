@@ -18,6 +18,7 @@ void env_t::save(const std::string& variable, const Var& value) {
     printf("  [] %s = %s\n", variable.c_str(), value->to_string().c_str());
     ctx->vars[variable] = value;
     ctx->varnames[value] = variable;
+    ctx->varlist.push_back(value);
     if (value->str == "*") value->trails = true;
     if (value->fit.size() == 0 && !value->numeric) {
         if (value->str == "*") {
@@ -298,11 +299,11 @@ bool val_t::operator<(const val_t& other) const {
             order.resize(comps.size());
             size_t idx = 0;
             for (const auto& i : comps) {
-                order[i.second.priority] = i.second.label;
+                order[i.second.priority] = i.first;
             }
-            for (size_t i = 0; i < idx; ++i) {
-                const auto& a = comps.at(order[i]).label;
-                const auto& b = other.comps.at(order[i]).label;
+            for (const auto& c : order) {
+                const auto& a = comps.at(c).label;
+                const auto& b = other.comps.at(c).label;
                 if (a < b) return true;
                 if (b < a) return false;
             }

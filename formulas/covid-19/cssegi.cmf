@@ -4,15 +4,15 @@
 # for other formats, these will appear as the fields "confirmed", "recovered", and "deaths"
 aspects confirmed, recovered, deaths;
 
-#country = "Province/State";
+key state = "Province/State";
 region = "Country/Region";
 
-key place = "Province/State";
-# fit region, country;
+# key place = fit region, country;
 
 lat = "Lat";
 long = "Long";
+
 key date = * as { "%u/%u/%u", year(0), month(1), day(2) };
-# * indicates that the remaining labels are all values that go into the 'date' field (for header),
+# * indicates that the leftover labels are all values that go into the 'date' field (for header),
 # which happens to be comprised of three fields 'year', 'month', and 'day', sscanf'd as "%u/%u/%u".
 # and into the individual aspect keys (for non-header rows)

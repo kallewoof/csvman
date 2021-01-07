@@ -67,6 +67,7 @@ struct tempstore_t {
 };
 
 struct context_t {
+    std::vector<Var> varlist;
     std::map<std::string,Var> vars;
     std::map<Var,std::string> varnames;
     std::map<std::string,std::string> links;

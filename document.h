@@ -71,7 +71,7 @@ private:
     void load_single(FILE* fp);
     void write_single(const document_t& doc, FILE* fp);
 
-    void create_index(size_t group_index, std::set<Value>& dest, Var formatter) const;
+    void create_index(size_t group_index, std::set<val_t>& dest, Var formatter) const;
 };
 
 Context CompileCMF(FILE* fp);
