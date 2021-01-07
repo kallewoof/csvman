@@ -14,9 +14,9 @@ char * const fake_argv[] = {
     "res.csv"
 };
 
-int main(int argc, const char* argv[]) {
-    #define argc fake_argc
-    #define argv fake_argv
+int main(int argc, char* const* argv) {
+    // #define argc fake_argc
+    // #define argv fake_argv
 
     cliargs ca;
     ca.add_option("mode", 'm', req_arg);
@@ -26,7 +26,7 @@ int main(int argc, const char* argv[]) {
     ca.add_option("verbose", 'v', no_arg);
     ca.add_option("debug", 'D', req_arg);
     ca.parse(argc, argv);
-    if (ca.m.count('h') || ca.l.size() < 4) {
+    if (ca.m.count('h') || ca.l.size() < 2) {
         fprintf(stderr, "Syntax: %s [--mode=<mode>|-m<mode> [--param=<param>|-p<param>]] <cmf file> <csv file*> [<cmf file 2> <csv file 2*> [...]] [-o <cmf file> <csv base filename>]\n", argv[0]);
         fprintf(stderr, "For aspect-based inputs, provide one filename for each aspect, in order; aspect based outputs are written as 'name_<aspect>.csv'\n");
         fprintf(stderr, "If no output (-o or --output) is provided, the last given specification is used to write the result to 'result[...].csv'.\n");
@@ -34,6 +34,7 @@ int main(int argc, const char* argv[]) {
         fprintf(stderr, "For 3 or more documents, all documents except the last one are considered sources, and the last document is the destination.\n");
         fprintf(stderr, "Inputs are never overwritten, unless they are specifically given as the output using -o.\n");
         fprintf(stderr, "Modes:\n");
+        fprintf(stderr, "  replace          Rewrite a single document using a different format\n");
         fprintf(stderr, "  merge-source     Replace all values in destination which also exist in source(s), keeping only distinct values.\n");
         fprintf(stderr, "  merge-dest       Insert values not previously found, and keep existing values.\n");
         fprintf(stderr, "  merge-avg        For any values existing in 2+ documents, (1) for numeric values, take the average of all values as resulting value,\n");
