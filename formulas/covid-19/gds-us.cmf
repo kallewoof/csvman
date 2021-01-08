@@ -5,13 +5,13 @@
 # Admin2,Date,Case,Country/Region,Province/State
 # Autauga,2020-01-22,0,US,Alabama
 
+# the single key, date, defines each entry as the sum of cases for that day
+key date = "Date" as { "%u-%u-%u", year(0), month(1), day(2) };
+
 # the input lists data per city, but we only want the total, so we sum the Cases
 # over the date
-cases = Sum("Case");
+helper cases = sum("Case");
 
 # data is split into 3 separate files, each covering a single aspect; however, as noted above,
 # the recovered data is missing, which we indicate using a negative 1 priority
 aspects confirmed, recovered(-1), deaths = cases;
-
-# the single key, date, defines each entry as the sum of cases for that day
-key date = "Date" as { "%u-%u-%u", year(0), month(1), day(2) };

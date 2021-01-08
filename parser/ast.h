@@ -28,6 +28,7 @@ struct st_callback_table {
     virtual void declare_aspects(const std::vector<prioritized_t>& aspects, const std::string& source) = 0;
     virtual ref fit(const std::vector<std::string>& sources) = 0;
     virtual ref key(ref source) = 0;
+    virtual ref helper(ref source) = 0;
 };
 
 typedef struct st_t * ST;
@@ -140,6 +141,21 @@ struct key_t: public st_t {
     }
     virtual ST clone() override {
         return new key_t(value.clone());
+    }
+};
+
+struct helper_t: public st_t {
+    st_c value;
+    helper_t(st_c value_in) : value(value_in) {}
+    virtual std::string to_string() override {
+        return "helper " + value.r->to_string();
+    }
+    virtual ref eval(st_callback_table* ct) override {
+        ref result = value.r->eval(ct);
+        return ct->helper(result);
+    }
+    virtual ST clone() override {
+        return new helper_t(value.clone());
     }
 };
 

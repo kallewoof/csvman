@@ -16,6 +16,7 @@ struct val_t {
     int64_t int64() {
         return (int64_t)atoll(value.c_str());
     }
+    void aggregate(const val_t& v);
 };
 
 typedef std::shared_ptr<val_t> Value;
@@ -30,6 +31,7 @@ struct var_t {
     bool key{false};
     bool numeric{false};
     bool aggregates{false};
+    bool helper{false};
 
     ref pref{0};
     std::string fmt;
@@ -102,4 +104,5 @@ struct env_t: public parser::st_callback_table {
     void declare_aspects(const std::vector<prioritized_t>& aspects, const std::string& source) override;
     ref fit(const std::vector<std::string>& sources) override;
     ref key(ref source) override;
+    ref helper(ref source) override;
 };

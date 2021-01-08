@@ -182,11 +182,23 @@ ST parse_key(cache_map& cache, Token& s) {
     return new key_t(e);
 }
 
+ST parse_helper(cache_map& cache, Token& s) {
+    DEBUG_PARSER("helper");
+    Token r = s;
+    if (!parse_keyword(cache, r, "helper")) return nullptr;
+    auto e = parse_expr(cache, r);
+    if (!e) return nullptr;
+    s = r;
+    return new helper_t(e);
+}
+
 ST parse_expr(cache_map& cache, Token& s) {
     DEBUG_PARSER("expr");
     ST x;
     Token pcv = s;
     if (cache.count(pcv)) return cache.at(pcv)->hit(s);
+    // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical, foobar38 as "%u", foobar38 as { "%u-%u-%u", a(0), b(1), c(2) }, sum(x), helper x
+    try(parse_helper);
     // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical, foobar38 as "%u", foobar38 as { "%u-%u-%u", a(0), b(1), c(2) }, sum(x)
     try(parse_sum);
     // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38, layout vertical, foobar38 as "%u", foobar38 as { "%u-%u-%u", a(0), b(1), c(2) }

@@ -104,7 +104,8 @@ document_t::document_t(const char* path) {
             key_indices[vn] = ki++;
             keys.push_back(v);
         } else {
-            values.push_back(v);
+            if (v->helper && !v->aggregates) throw std::runtime_error(vn + " is a non-aggregating helper; this is currently pointless");
+            if (!v->helper) values.push_back(v);
             if (v->aggregates) aggregates.push_back(v);
         }
     }
@@ -143,19 +144,18 @@ void document_t::record_state(const Value& aspect_value) {
 
     std::map<std::string,Value>& valuemap = data[gk];
 
-    if (aspect != "") {
-        valuemap[aspect] = aspect_value;
-    }
-
     if (existed) {
-        // aggregate
         for (const auto &v : aggregates) {
-            valuemap[ctx->varnames[v]]->value = std::to_string(valuemap[ctx->varnames[v]]->int64() + v->imprint()->int64());
+            valuemap[ctx->varnames[v]]->aggregate(*v->imprint());
         }
     } else {
         for (const auto &v : values) {
             valuemap[ctx->varnames[v]] = v->imprint();
         }
+    }
+
+    if (aspect != "") {
+        valuemap[aspect] = ctx->aspect_source != "" ? valuemap[ctx->aspect_source] : aspect_value;
     }
 }
 
@@ -165,7 +165,7 @@ void document_t::process(const std::vector<std::string>& row) {
         v->read(row.at(v->index));
     }
     if (trail.size() == 0) {
-        record_state(ctx->aspect_source != "" ? ctx->vars[ctx->aspect_source]->imprint() : nullptr);
+        record_state();
         return;
     }
     // iterate

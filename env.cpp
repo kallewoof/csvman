@@ -90,7 +90,16 @@ ref env_t::fit(const std::vector<std::string>& sources) {
 ref env_t::key(ref source) {
     Var& inp = ctx->temps.pull(source);
     if (inp->key) throw std::runtime_error("duplicate key assignment to variable");
+    if (inp->helper) throw std::runtime_error("helpers cannot also be keys");
     inp->key = true;
+    return source;
+}
+
+ref env_t::helper(ref source) {
+    Var& inp = ctx->temps.pull(source);
+    if (inp->helper) throw std::runtime_error("duplicate helper assignment to variable");
+    if (inp->key) throw std::runtime_error("keys cannot also be helpers");
+    inp->helper = true;
     return source;
 }
 
@@ -334,4 +343,8 @@ bool val_t::operator<(const val_t& other) const {
         }
     }
     return rv == 1;
+}
+
+void val_t::aggregate(const val_t& v) {
+    value = std::to_string(int64() + v.int64());
 }
