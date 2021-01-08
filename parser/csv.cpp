@@ -47,15 +47,18 @@ bool csv::read(std::vector<std::string>& vec) {
     size_t start = 0;
     char ch, buf[512];
     size_t len = 0;
+    short crop = 0;
     while (EOF != (ch = buf[len++] = fgetc(fp))) {
         if (quoted) {
             if (ch == '"') {
                 quoted = false;
+                crop = 1;
             }
         } else if (ch == ',' || ch == '\n') {
-            buf[len - (quoted && len > 1 ? 2 : 1)] = 0;
-            vec.emplace_back(&buf[quoted && len > 1 ? 1 : 0]);
+            buf[len - crop - 1] = 0;
+            vec.emplace_back(&buf[crop]);
             len = 0;
+            crop = 0;
             // printf("emplaced %s\n", vec.back().c_str());
             if (ch == '\n' || ch == -1) return true;
         } else if (ch == '"') {
@@ -63,8 +66,8 @@ bool csv::read(std::vector<std::string>& vec) {
         }
     }
     if (!ch && len > 1) {
-        buf[len - (quoted && len > 1 ? 2 : 1)] = 0;
-        vec.emplace_back(&buf[quoted && len > 1 ? 1 : 0]);
+        buf[len - crop - 1] = 0;
+        vec.emplace_back(&buf[crop]);
     }
 
     return vec.size() > 0;

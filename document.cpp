@@ -50,16 +50,17 @@ Context CompileCMF(FILE* fp) {
     char* buf = (char*)malloc(cap);
     char* pos = buf;
     while (0 < (read = fread(pos, 1, rem, fp))) {
+        pos += read;
         if (read < rem) {
             break;
         }
-        pos += read;
-        cap <<= 1;
+        cap <<= 2;
         read = pos - buf;
         buf = (char*)realloc(buf, cap);
         pos = buf + read;
         rem = cap - read;
     }
+    *pos = 0;
 
     Token t = parser::tokenize(buf);
     free(buf);
@@ -109,6 +110,11 @@ document_t::document_t(const char* path) {
             if (v->aggregates) aggregates.push_back(v);
         }
     }
+    for (const auto& aspect : ctx->aspects) {
+        if (aspect.priority == -1) {
+            missing.emplace_back(aspect.label);
+        }
+    }
 }
 
 void document_t::align(const std::vector<std::string>& headers) {
@@ -149,6 +155,12 @@ void document_t::record_state(const Value& aspect_value) {
             valuemap[ctx->varnames[v]]->aggregate(*v->imprint());
         }
     } else {
+        for (const auto& m : missing) {
+            valuemap[m] = std::make_shared<val_t>("0");
+        }
+        for (const auto &v : aggregates) {
+            valuemap[ctx->varnames[v]] = v->imprint();
+        }
         for (const auto &v : values) {
             valuemap[ctx->varnames[v]] = v->imprint();
         }
@@ -209,6 +221,7 @@ void document_t::load_single(FILE* fp) {
     while (reader.read(row)) {
         process(row);
         ++count;
+        if (count % 100000 == 0) { printf("%zu\r", count); fflush(stdout); }
     }
     printf("Read %zu lines (%zu entries)\n", count, data.size());
 }
@@ -217,7 +230,9 @@ void document_t::load_from_disk(cliargs& argiter) {
     if (ctx->aspects.size() > 0) {
         // aspect based which means path is multiple files
         for (size_t i = 0; i < ctx->aspects.size(); ++i) {
-            if (ctx->aspects[i].priority == -1) continue;
+            if (ctx->aspects[i].priority == -1) {
+                continue;
+            }
             aspect = ctx->aspects[i].label;
             load_single(fopen_or_die(argiter.next(), fmode_reading));
         }

@@ -5,12 +5,17 @@
 #include "parser/csv.h"
 #include "utils.h"
 
-int fake_argc = 5;
-char * const fake_argv[] = {
+int fake_argc = 10;
+const char * fake_argv[] = {
     "./compile",
-    "formulas/covid-19/ulklc.cmf",
-    "./rawReport.csv",
-    "formulas/covid-19/cssegi.cmf",
+    "--mode=merge-dest",
+    "formulas/covid-19/gds.cmf",
+    "./time-series-19-covid-combined.csv",
+    "formulas/covid-19/gds-us.cmf",
+    "./us_confirmed.csv",
+    "./us_deaths.csv",
+    "-f",
+    "formulas/covid-19/gds.cmf",
     "res.csv"
 };
 
@@ -21,15 +26,15 @@ int main(int argc, char* const* argv) {
     cliargs ca;
     ca.add_option("mode", 'm', req_arg);
     ca.add_option("param", 'p', req_arg);
-    ca.add_option("output", 'o', req_arg);
+    ca.add_option("output-format", 'f', req_arg);
     ca.add_option("help", 'h', no_arg);
     ca.add_option("verbose", 'v', no_arg);
     ca.add_option("debug", 'D', req_arg);
     ca.parse(argc, argv);
     if (ca.m.count('h') || ca.l.size() < 2) {
-        fprintf(stderr, "Syntax: %s [--mode=<mode>|-m<mode> [--param=<param>|-p<param>]] <cmf file> <csv file*> [<cmf file 2> <csv file 2*> [...]] [-o <cmf file> <csv base filename>]\n", argv[0]);
+        fprintf(stderr, "Syntax: %s [--mode=<mode>|-m<mode> [--param=<param>|-p<param>]] <cmf file> <csv file*> [<cmf file 2> <csv file 2*> [...]] [-f <cmf file> <csv base filename>]\n", argv[0]);
         fprintf(stderr, "For aspect-based inputs, provide one filename for each aspect, in order; aspect based outputs are written as 'name_<aspect>.csv'\n");
-        fprintf(stderr, "If no output (-o or --output) is provided, the last given specification is used to write the result to 'result[...].csv'.\n");
+        fprintf(stderr, "If no output (-f or --output-format <format> <filename>) is provided, the last given specification is used to write the result to 'result[...].csv'.\n");
         fprintf(stderr, "For 2 documents, the first is the source, and the second is the destination (going into the third, -o CSV file).\n");
         fprintf(stderr, "For 3 or more documents, all documents except the last one are considered sources, and the last document is the destination.\n");
         fprintf(stderr, "Inputs are never overwritten, unless they are specifically given as the output using -o.\n");
@@ -43,7 +48,7 @@ int main(int argc, char* const* argv) {
         exit(1);
     }
 
-    import_mode mode;
+    import_mode mode = import_mode::merge_dest;
     if (ca.m.count('m')) {
         mode = parse_import_mode(ca.m['m']);
     }
@@ -55,10 +60,10 @@ int main(int argc, char* const* argv) {
     size_t source_end = ca.l.size();
     Document dest;
     std::string output_path = "result.csv";
-    if (ca.m.count('o')) {
+    if (ca.m.count('f')) {
         // file output, with format specified in 'o' and the file as the last argument in 'l'.
         --source_end;
-        dest = std::make_shared<document_t>(ca.m.at('o').c_str());
+        dest = std::make_shared<document_t>(ca.m.at('f').c_str());
         output_path = ca.l.back();
     }
 
@@ -76,10 +81,4 @@ int main(int argc, char* const* argv) {
     dest->import_data(sources, mode, param);
 
     dest->save_data_to_disk(output_path);
-
-    // document_t doc(ca.next());
-    // doc.load_from_disk(ca);
-
-    // document_t doc2(ca.next());
-    // doc2.save_data_to_disk(doc, ca.next());
 }

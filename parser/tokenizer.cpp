@@ -19,15 +19,22 @@ Token tokenize(const char* s) {
     size_t token_start = 0;
     size_t i;
     int consumes;
+    int lineno = 1;
+    int col = 0;
     for (i = 0; s[i]; ++i) {
         // if we are finding a character, keep reading until we find it
+        ++col;
+        if (s[i] == '\n') {
+            col = 1;
+            ++lineno;
+        }
         if (finding) {
             if (s[i] != finding) continue;
             finding = 0;
             open = false;
             continue; // we move one extra step, or "foo" will be read in as "foo
         }
-        auto token = determine_token(s[i], i ? s[i-1] : 0, spaced ? tok_ws : tail ? tail->token : tok_undef, consumes);
+        auto token = determine_token(s[i], i ? s[i-1] : 0, spaced ? tok_ws : tail ? tail->token : tok_undef, consumes, tail ? &tail->token : nullptr);
         if (consumes) {
             // we only support 1 token consumption at this point
             tail->token = tok_consumable;
@@ -39,7 +46,7 @@ Token tokenize(const char* s) {
         // printf("token = %s\n", token_type_str[token]);
         if (token == tok_consumable && tail->token == tok_consumable) {
             char buf[128];
-            sprintf(buf, "tokenization failure at character '%c'", s[i]);
+            sprintf(buf, "tokenization failure at character '%c' (%03d:%d)", s[i], lineno, col);
             throw std::runtime_error(buf);
             delete head;
             return nullptr;
@@ -67,6 +74,7 @@ Token tokenize(const char* s) {
                 finding = '"';
             case tok_symbol:
             case tok_number:
+            case tok_minus:
             case tok_consumable:
                 prev = tail;
                 finalized = false;
@@ -98,7 +106,7 @@ Token tokenize(const char* s) {
             case tok_undef:
                 {
                     char buf[128];
-                    sprintf(buf, "tokenization failure at character '%c'", s[i]);
+                    sprintf(buf, "tokenization failure at character '%c' (%03d:%d)", s[i], lineno, col);
                     throw std::runtime_error(buf);
                 }
                 delete head;

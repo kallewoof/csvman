@@ -74,6 +74,7 @@ public:
 private:
     Context ctx;
     std::vector<Var> keys, values, aligned, aggregates;
+    std::vector<std::string> missing; // these are set to the value "0" for all value maps
     std::map<std::string, int> key_indices;
     std::vector<std::string> trail; // for formats with a trail (header contains e.g. dates in a trail going right), this contains the header values
 

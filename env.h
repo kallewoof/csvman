@@ -10,10 +10,11 @@ struct val_t {
     std::string value;
     std::vector<std::string> alternatives;
     std::map<std::string, prioritized_t> comps;
+    val_t(const std::string& value_in = "") : value(value_in) {}
     bool operator<(const val_t& other) const;
     std::string to_string() const;
     bool number{false};
-    int64_t int64() {
+    int64_t int64() const {
         return (int64_t)atoll(value.c_str());
     }
     void aggregate(const val_t& v);

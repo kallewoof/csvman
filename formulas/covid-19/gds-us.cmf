@@ -1,4 +1,4 @@
-# This is an export-only adapter for converting US data from the covid-19 datasets github repository
+# This is an import-only adapter for converting US data from the covid-19 datasets github repository
 # It can be used together with the gds.cmf converter to generate international data from datasets data.
 # Note that currently there is no "recovered" data available, which means this aspect is set to 0 currently.
 
@@ -7,6 +7,11 @@
 
 # the single key, date, defines each entry as the sum of cases for that day
 key date = "Date" as { "%u-%u-%u", year(0), month(1), day(2) };
+
+# the state key is the same for all entries, but is needed when merging
+key state = "Country/Region";
+
+region = "Province/State";
 
 # the input lists data per city, but we only want the total, so we sum the Cases
 # over the date

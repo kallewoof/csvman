@@ -57,13 +57,14 @@ ST parse_sum(cache_map& cache, Token& s) {
     if (s->next && s->next->next && s->next->next->next && s->token == tok_symbol && s->next->token == tok_lparen) {
         if (std::string("sum") != s->value) return nullptr;
         Token r = s->next->next;
-        ST v = parse_variable(cache, r);
+        ST v = parse_expr(cache, r);
         if (!v) return nullptr;
         if (!r || r->token != tok_rparen) { delete v; return nullptr; }
         sum_t* rv = new sum_t(v);
         s = r->next;
         return rv;
     }
+    return nullptr;
 }
 
 std::vector<prioritized_t> parse_symbol_list(cache_map& cache, Token& s) {

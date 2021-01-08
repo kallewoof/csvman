@@ -25,6 +25,7 @@ enum token_type {
     tok_lcurly,
     tok_rcurly,
     tok_mul,
+    tok_minus,
     tok_consumable, // consumed by fulfilled token sequences
     tok_ws,
     tok_comment
@@ -43,6 +44,7 @@ static const char* token_type_str[] = {
     "lcurly",
     "rcurly",
     "*",
+    "-",
     "consumable",
     "ws",
     "comment"
@@ -68,18 +70,28 @@ struct token_t {
     }
 };
 
-inline token_type determine_token(const char c, const char p, token_type current, int& consumes) {
+inline token_type determine_token(const char c, const char p, token_type current, int& consumes, token_type* current_mutable) {
     consumes = 0;
     if (c == '#') return tok_comment;
     if (c == '*') return tok_mul;
+    if (c == '-') {
+        if (current == tok_minus) throw std::runtime_error("double-minus is invalid");
+        return tok_minus;
+    }
     if (c == ',') return tok_comma;
     if (c == ';') return tok_semicolon;
     if (c == '=') return tok_set;
     if (c == ')') return tok_rparen;
     if (c == '}') return tok_rcurly;
     if (c == ' ' || c == '\t' || c == '\n') return tok_ws;
-
-    if (c >= '0' && c <= '9') return current == tok_symbol ? tok_symbol : tok_number;
+    if (c >= '0' && c <= '9') {
+        if (current == tok_minus) {
+            if (current_mutable == nullptr) throw std::runtime_error("internal error");
+            *current_mutable = tok_number;
+            return tok_number;
+        }
+        return current == tok_symbol ? tok_symbol : tok_number;
+    }
     if ((c >= 'a' && c <= 'z') ||
         (c >= 'A' && c <= 'Z') ||
         c == '_') return tok_symbol;

@@ -1,10 +1,16 @@
+# This is the non-US portion of the datasets/covid-19 github repository
+# It can be converted into an international format by
+# 1. aggregating the US versions (gds-us-agg.cmf)
+# 2. combining the time-series output (this file) and the above using e.g. merge-destination
+
 # Date,Country/Region,Province/State,Confirmed,Recovered,Deaths
 # 2020-01-22,Afghanistan,,0,0,0
 
 key date = "Date" as { "%u-%u-%u", year(0), month(1), day(2) };
 
-key state = "Provice/State";
-region = "Country/Region";
+key state = "Country/Region";
+
+region = "Province/State";
 
 # key place = fit region, country;
 
