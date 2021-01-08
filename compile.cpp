@@ -8,14 +8,14 @@
 int fake_argc = 10;
 const char * fake_argv[] = {
     "./compile",
-    "--mode=merge-dest",
+    "--mode=merge-forward",
+    "formulas/covid-19/ulklc.cmf",
+    "./rawReport.csv",
     "formulas/covid-19/gds.cmf",
     "./time-series-19-covid-combined.csv",
-    "formulas/covid-19/gds-us.cmf",
-    "./us_confirmed.csv",
-    "./us_deaths.csv",
+    "--param=date",
     "-f",
-    "formulas/covid-19/gds.cmf",
+    "formulas/covid-19/cssegi.cmf",
     "res.csv"
 };
 
