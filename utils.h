@@ -7,8 +7,13 @@
 #include <vector>
 #include <set>
 
+#include <signal.h>
 #include <cstring>
 #include <getopt.h>
+
+static inline void debugbreak() {
+    raise(SIGTRAP);
+}
 
 static inline bool is_numeric(const char* value) {
     if (!*value) return false;

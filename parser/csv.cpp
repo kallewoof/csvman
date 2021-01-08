@@ -1,5 +1,13 @@
 #include "csv.h"
 
+std::string csv::stringify(const std::vector<std::string>& vec) {
+    std::string s = "";
+    for (const auto& t : vec) {
+        s += (s == "" ? "" : ",") + t;
+    }
+    return s;
+}
+
 // void csv::parse(const char* buf, std::vector<std::string>& vec) {
 //     bool quoted = false;
 //     vec.resize(0);

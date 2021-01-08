@@ -12,6 +12,7 @@ public:
     ~csv() { fclose(fp); }
     bool read(std::vector<std::string>& vec);
     void write(const std::vector<std::string>& vec);
+    static std::string stringify(const std::vector<std::string>& vec);
     // static void parse(const char* csv, std::vector<std::string>& vec);
 };
 

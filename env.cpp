@@ -61,16 +61,6 @@ ref env_t::sum(ref value) {
     return ctx->temps.pass(tmp);
 }
 
-// void env_t::declare(const std::string& key, const std::string& value) {
-//     if (key == "layout") {
-//         if (value == "vertical") ctx->layout = layout_t::vertical;
-//         else if (value == "horizontal") ctx->layout = layout_t::horizontal;
-//         else throw std::runtime_error("unknown layout: " + value);
-//         return;
-//     }
-//     throw std::runtime_error("unknown declaration key " + key);
-// }
-
 void env_t::declare_aspects(const std::vector<prioritized_t>& aspects, const std::string& source) {
     if (ctx->aspects.size() > 0) throw std::runtime_error("multiple aspects statements are invalid");
     ctx->aspects = aspects;
@@ -193,33 +183,27 @@ void var_t::read(const std::string& input_string) {
 }
 
 Value var_t::imprint() const {
-    Value val = std::make_shared<val_t>();
-    val->value = value;
-    val->number = is_numeric(value.c_str());
+    mutable_val_t val;
+    val.value = value;
+    val.numeric = is_numeric(value.c_str());
     if (fmt.size() > 0) {
-        val->comps.clear();
+        val.comps.clear();
         for (size_t i = 0; i < varnames.size(); ++i) {
-            val->comps[varnames[i].label] = prioritized_t(comps.at(varnames[i].label), varnames.at(i).priority);
+            val.comps[varnames[i].label] = prioritized_t(comps.at(varnames[i].label), varnames.at(i).priority);
         }
-        return val;
+        return std::make_shared<val_t>(val);
     }
-    if (fit.size() > 0) {
-        std::vector<std::string> versions;
-        for (const auto& f : fit) versions.push_back(f->write());
-        val->value = versions.back();
-        versions.pop_back();
-        val->alternatives = versions;
-    }
-    return val;
+    return std::make_shared<val_t>(val);
 }
 
 void var_t::read(const val_t& val) {
-    if (val.comps.size() == 0) {
-        value = val.value;
+    const auto& val_comps = val.get_comps();
+    if (val_comps.size() == 0) {
+        value = val.get_value();
     } else {
         comps.clear();
         for (size_t i = 0; i < varnames.size(); ++i) {
-            comps[varnames[i].label] = val.comps.at(varnames[i].label).label;
+            comps[varnames[i].label] = val_comps.at(varnames[i].label).label;
         }
         value = write();
     }
@@ -274,6 +258,10 @@ std::string var_t::to_string() const {
     return str + "(" + write() + ")" + suffix;
 }
 
+bool var_t::operator<(const var_t& other) const {
+    return other.write() < write();
+}
+
 std::string val_t::to_string() const {
     std::string s = "";
     if (comps.size() > 0) {
@@ -282,69 +270,83 @@ std::string val_t::to_string() const {
         }
         return "{ " + s + " }";
     }
-    if (alternatives.size() > 0) {
-        s = value;
-        for (const auto& a : alternatives) {
-            s += "|" + a;
-        }
-        return s;
-    }
-    return value;
+    return get_value();
 }
 
-bool var_t::operator<(const var_t& other) const {
-    if (fit.size() > 0) {
-        if (other.fit[0]->write()<fit[0]->write()) return false;
-        for (size_t i = 0; i < fit.size(); ++i) {
-            auto a = fit[i]->write();
-            for (size_t j = 0; j < other.fit.size(); ++j) {
-                auto b = other.fit[j]->write();
-                if (a == b) return false;
-            }
-        }
-        return true;
+void val_t::did_change() {
+    size_t bytes = comps.size() > 0 ? 0 : numeric ? sizeof(number) : _value.size();
+    for (const auto& c : comps) bytes += c.second.label.size();
+    if (complen == 0) {
+        comparable = (uint8_t*)malloc(bytes);
+    } else if (complen < bytes) {
+        comparable = (uint8_t*)realloc(comparable, bytes);
     }
-    return other.write() < write();
+    complen = bytes;
+    if (numeric) {
+        memcpy(comparable, &number, sizeof(number));
+        return;
+    }
+    if (comps.size() == 0) {
+        memcpy(comparable, _value.c_str(), _value.size());
+        return;
+    }
+    uint8_t* pos = comparable;
+    std::vector<std::string> order;
+    order.resize(comps.size());
+    size_t idx = 0;
+    for (const auto& i : comps) {
+        order[i.second.priority] = i.first;
+    }
+    for (const auto& c : order) {
+        const auto& a = comps.at(c).label;
+        memcpy(pos, a.c_str(), a.size());
+        pos += a.size();
+    }
+}
+
+const std::string& val_t::get_value() const {
+    if (numeric && number != cached_number) {
+        cached_number = number;
+        _value = std::to_string(number);
+    }
+    return _value;
+}
+const std::map<std::string, prioritized_t>& val_t::get_comps() const { return comps; }
+void val_t::set_value(const std::string& new_value) { _value = new_value; did_change(); }
+void val_t::set_comps(const std::map<std::string, prioritized_t>& new_comps, const std::string& new_value) { comps = new_comps; _value = new_value; did_change(); }
+bool val_t::is_number() const { return numeric; }
+int64_t val_t::get_number() const { return number; }
+void val_t::set_number(int64_t v) {
+    number = v;
+    did_change();
 }
 
 bool val_t::operator<(const val_t& other) const {
-    std::vector<std::string> a, b;
-    if (alternatives.size() == 0) {
-        if (comps.size() > 0) {
-            std::vector<std::string> order;
-            order.resize(comps.size());
-            size_t idx = 0;
-            for (const auto& i : comps) {
-                order[i.second.priority] = i.first;
-            }
-            for (const auto& c : order) {
-                const auto& a = comps.at(c).label;
-                const auto& b = other.comps.at(c).label;
-                if (a < b) return true;
-                if (b < a) return false;
-            }
-            return false;
-        }
-        return (value < other.value);
-    }
-    a = alternatives;
-    a.push_back(value);
-    b = other.alternatives;
-    b.push_back(other.value);
-    int rv = -1;
-    for (size_t i = 0; i < a.size(); ++i) {
-        if (a[i] < b[i]) {
-            if (rv == -1) rv = 1;
-        } else if (b[i] < a[i]) {
-            if (rv == -1) rv = 0;
-        } else {
-            // they are equal
-            return false;
-        }
-    }
-    return rv == 1;
+    int c = memcmp(comparable, other.comparable, complen > other.complen ? other.complen : complen);
+    return c ? c < 0 : other.complen > complen;
 }
 
-void val_t::aggregate(const val_t& v) {
-    value = std::to_string(int64() + v.int64());
+Value val_t::clone() const {
+    Value val = std::make_shared<val_t>(*this);
+    val->comparable = (uint8_t*)malloc(complen);
+    memcpy(val->comparable, comparable, complen);
+    return val;
+}
+
+void val_t::aggregate(const val_t& v, uint8_t curr_phase) {
+    if (!v.numeric) {
+        v.number = v.int64();
+        v.numeric = true;
+    }
+    if (curr_phase != phase) {
+        numeric = true;
+        number = v.number;
+        phase = curr_phase;
+        return;
+    }
+    if (!numeric) {
+        number = int64();
+        numeric = true;
+    }
+    number += v.number;
 }

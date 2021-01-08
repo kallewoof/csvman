@@ -6,18 +6,41 @@
 using parser::prioritized_t;
 using parser::ref;
 
-struct val_t {
+struct mutable_val_t {
     std::string value;
-    std::vector<std::string> alternatives;
     std::map<std::string, prioritized_t> comps;
-    val_t(const std::string& value_in = "") : value(value_in) {}
+    bool numeric{false};
+};
+
+class val_t {
+private:
+    mutable std::string _value;
+    std::map<std::string, prioritized_t> comps;
+    uint8_t* comparable;
+    size_t complen;
+    mutable int64_t number;
+    mutable int64_t cached_number{-1};
+    mutable bool numeric;
+    void did_change();
+    // this differs from get_number() in that it forcibly converts value, whereas get_number() assumes numeric=true
+    int64_t int64() const { int64_t x = cached_number; cached_number = number; auto rv = (int64_t)atoll(get_value().c_str()); cached_number = x; return rv; }
+public:
+    uint8_t phase{0};
+    val_t(const mutable_val_t& mv) : _value(mv.value), comps(mv.comps), comparable(nullptr), complen(0), numeric(mv.numeric) {
+        if (numeric) number = int64(); did_change();
+    }
+    val_t(const std::string& value_in = "") : _value(value_in), comparable(nullptr), complen(0) { did_change(); }
+    std::shared_ptr<val_t> clone() const;
+    const std::string& get_value() const;
+    const std::map<std::string, prioritized_t>& get_comps() const;
+    void set_value(const std::string& new_value);
+    void set_comps(const std::map<std::string, prioritized_t>& comps, const std::string& new_value = "");
     bool operator<(const val_t& other) const;
     std::string to_string() const;
-    bool number{false};
-    int64_t int64() const {
-        return (int64_t)atoll(value.c_str());
-    }
-    void aggregate(const val_t& v);
+    void aggregate(const val_t& v, uint8_t curr_phase);
+    bool is_number() const;
+    int64_t get_number() const;
+    void set_number(int64_t v);
 };
 
 typedef std::shared_ptr<val_t> Value;

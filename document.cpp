@@ -152,7 +152,7 @@ void document_t::record_state(const Value& aspect_value) {
 
     if (existed) {
         for (const auto &v : aggregates) {
-            valuemap[ctx->varnames[v]]->aggregate(*v->imprint());
+            valuemap[ctx->varnames[v]]->aggregate(*v->imprint(), phase);
         }
     } else {
         for (const auto& m : missing) {
@@ -160,6 +160,7 @@ void document_t::record_state(const Value& aspect_value) {
         }
         for (const auto &v : aggregates) {
             valuemap[ctx->varnames[v]] = v->imprint();
+            valuemap[ctx->varnames[v]]->phase = phase;
         }
         for (const auto &v : values) {
             valuemap[ctx->varnames[v]] = v->imprint();
@@ -167,7 +168,7 @@ void document_t::record_state(const Value& aspect_value) {
     }
 
     if (aspect != "") {
-        valuemap[aspect] = ctx->aspect_source != "" ? valuemap[ctx->aspect_source] : aspect_value;
+        valuemap[aspect] = ctx->aspect_source != "" ? valuemap[ctx->aspect_source]->clone() : aspect_value;
     }
 }
 
@@ -183,8 +184,7 @@ void document_t::process(const std::vector<std::string>& row) {
     // iterate
     for (size_t i = ctx->trailing->index; i < row.size(); ++i) {
         ctx->trailing->read(trail[i - ctx->trailing->index]);
-        Value v = std::make_shared<val_t>();
-        v->value = row.at(i);
+        Value v = std::make_shared<val_t>(row.at(i));
         record_state(v);
     }
 }
@@ -206,6 +206,7 @@ std::string group_t::to_string() const {
 }
 
 void document_t::load_single(FILE* fp) {
+    ++phase;
     csv reader(fp);
     std::vector<std::string> row;
     if (!reader.read(row)) {
@@ -321,7 +322,7 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
                     }
                     initial = false;
                 }
-                row[rowidx++] = valuemap.at(aspect)->value; // TODO: deal with conversions
+                row[rowidx++] = valuemap.at(aspect)->get_value(); // TODO: deal with conversions
             }
             // completed one row; phew!
             writer.write(row);
@@ -432,11 +433,11 @@ void document_t::import_data(const std::vector<Document>& sources, import_mode m
             size_t divisor = sources.size();
             std::set<std::string> numeric;
             for (const auto& m : sources[0]->data.begin()->second) {
-                if (m.second->number) numeric.insert(m.first);
+                if (m.second->is_number()) numeric.insert(m.first);
             }
             for (const auto& doc : sources) {
                 for (const auto& m : doc->data.begin()->second) {
-                    if (!m.second->number && numeric.count(m.first)) {
+                    if (!m.second->is_number() && numeric.count(m.first)) {
                         numeric.erase(m.first);
                     }
                 }
@@ -453,10 +454,9 @@ void document_t::import_data(const std::vector<Document>& sources, import_mode m
                             // only support integers atm
                             int64_t i = 0;
                             for (const auto& d : sources) {
-                                i += d->data.at(k.first).at(num)->int64();
+                                i += d->data.at(k.first).at(num)->get_number();
                             }
-                            i /= divisor;
-                            vm[num]->value = std::to_string(i);
+                            vm[num]->set_number(i / divisor);
                         }
                         data[k.first] = k.second;
                         known.insert(k.first);

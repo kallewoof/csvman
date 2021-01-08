@@ -22,6 +22,11 @@ const char * fake_argv[] = {
 int main(int argc, char* const* argv) {
     // #define argc fake_argc
     // #define argv fake_argv
+    if (argc == 1) {
+        // use defaults
+        argc = fake_argc;
+        argv = (char* const*)fake_argv;
+    }
 
     cliargs ca;
     ca.add_option("mode", 'm', req_arg);

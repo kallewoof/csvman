@@ -72,6 +72,7 @@ public:
 
     void save_data_to_disk(const document_t& doc, const std::string& path);
 private:
+    uint8_t phase{0};
     Context ctx;
     std::vector<Var> keys, values, aligned, aggregates;
     std::vector<std::string> missing; // these are set to the value "0" for all value maps
