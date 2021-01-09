@@ -178,10 +178,10 @@ ST parse_declarations(cache_map& cache, Token& s) {
     auto type = var->varname;
     delete var;
 
-    if (type == "aspects") {
+    if (type == "aspects" || type == "aspect") {
         // aspects A, B, ... [= X]
         auto aspects = parse_symbol_list(cache, r);
-        if (aspects.size() < 2) return nullptr;
+        if (aspects.size() < 1) return nullptr;
         std::string source;
         if (r && r->next && r->token == tok_set) {
             r = r->next;
