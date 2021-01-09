@@ -22,7 +22,7 @@ git clone git@github.com:datasets/covid-19.git gds-data
 Manipulate data:
 
 ```Bash
-./compile formulas/covid-19/gds.cmf gds-data/time-series-19-covid-combined.csv -f formulas/covid-19/cssegi.cmf result.csv
+./compile formulas/covid-19/gds.cmf gds-data/time-series-19-covid-combined.csv -f formulas/covid-19/ulklc.cmf result.csv
 ```
 
 Should now have three files result_confirmed|recovered|deaths.csv in the CSSEGI COVID-19 format.

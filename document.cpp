@@ -368,7 +368,15 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
             if (v->key) {
                 v->read(*entry.first.values.at(kiter++));
             } else {
-                v->read(*entry.second.at(m.first));
+                if (entry.second.count(m.first)) {
+                    v->read(*entry.second.at(m.first));
+                } else {
+                    if (!warn_keys.count(m.first)) {
+                        fprintf(stderr, "Warning: missing value for \"%s\"\n", m.first.c_str());
+                        warn_keys.insert(m.first);
+                    }
+                    v->read("");
+                }
             }
             if (v->index > -1) row[v->index] = v->write();
         }
