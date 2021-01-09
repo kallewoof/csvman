@@ -144,8 +144,10 @@ aspect location;
 
 Since the date *value* is stored in the header itself, we also need to explain what the individual values below it mean. The third line declares the name of the value in the date columns.
 
-In some cases there are multiple files with the same name and date values, but containing different data (e.g. confirmed cases, recovered cases, and deaths, for a pandemic). These three documents define *aspects* of a given data. In CMF, they can be declared as:
+In some cases there are multiple files with the same keys, each containing different data (e.g. confirmed cases, recovered cases, and deaths, for a pandemic). These three documents define *aspects* of a given data. In CMF, they can be declared as:
 
 ```
 aspects confirmed, recovered, deaths;
 ```
+
+Whenever a formula with 2 or more aspects is processed, it will require as input (or produce as output) that number of files, so the pandemic case above would require three inputs (for reading) and would produce three files labeled confirmed, recovered, and deaths when producing output.
