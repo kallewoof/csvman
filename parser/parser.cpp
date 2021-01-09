@@ -268,8 +268,6 @@ ST parse_expr(cache_map& cache, Token& s) {
 ST parse_alloc_one(Token tokens) {
     head = tokens;
     cache_map cache;
-    uint64_t flags = 0;
-    // pws ws(pcache, flags);
     Token s = tokens;
     ST value = parse_expr(cache, s);
     head = nullptr;

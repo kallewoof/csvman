@@ -52,7 +52,7 @@ public:
 
     std::string cmf_path;
 
-    document_t(Context ctx_in, std::set<std::string>* fitness_set_in = nullptr) : ctx(ctx_in), fitness_set(fitness_set_in ?: new std::set<std::string>()) {}
+    document_t(Context ctx_in, std::set<std::string>* fitness_set_in = nullptr) : fitness_set(fitness_set_in ?: new std::set<std::string>()), ctx(ctx_in) {}
     document_t(const char* path, std::set<std::string>* fitness_set_in = nullptr);
     document_t() : ctx(nullptr) {}
 

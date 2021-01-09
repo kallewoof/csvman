@@ -151,7 +151,6 @@ void var_t::read(const std::string& input_string) {
         set_insert_array(*s_set, (char*)",./:;!@#$%^&*()-=_+[]\\{}|", 26);
     }
 
-    size_t inpos = 0;
     size_t varnamepos = 0;
     bool fmtflag = false;
     const char* pos = input_string.data();
@@ -349,7 +348,6 @@ void val_t::did_change() {
     uint8_t* pos = comparable;
     std::vector<std::string> order;
     order.resize(comps.size());
-    size_t idx = 0;
     for (const auto& i : comps) {
         order[i.second.priority] = i.first;
     }

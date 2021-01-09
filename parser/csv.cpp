@@ -52,7 +52,6 @@ bool csv::read(std::vector<std::string>& vec) {
     bool quoted = false;
     vec.resize(0);
     // printf("parsing %s\n", buf);
-    size_t start = 0;
     char ch, buf[512];
     size_t len = 0;
     short crop = 0;

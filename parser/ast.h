@@ -36,6 +36,7 @@ struct st_callback_table {
 typedef struct st_t * ST;
 
 struct st_t {
+    virtual ~st_t() {}
     virtual std::string to_string() {
         return "????";
     }

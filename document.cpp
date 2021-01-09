@@ -70,7 +70,7 @@ Context CompileCMF(FILE* fp) {
 
     env_t e;
 
-    uint32_t lineno = 0;
+    // uint32_t lineno = 0;
     for (auto& line : program) {
         // printf("%03u %s\n", ++lineno, line->to_string().c_str());
         line->eval(&e);
@@ -251,15 +251,14 @@ void document_t::load_from_disk(cliargs& argiter) {
 void document_t::write_single(const document_t& doc, FILE* fp) {
     csv writer(fp);
     std::vector<std::string> row;
-    size_t pretrail = keys.size() + values.size() - (ctx->trailing ? 1 : 0);
+    size_t pretrail = values.size() - (ctx->trailing ? 1 : 0);
+    for (const auto& k : keys) pretrail += k->fit.size() == 0;
 
     row.resize(pretrail);
 
     // generate header and trail
-    size_t i;
     for (const auto& var : aligned) {
         row[var->index] = var->str;
-        ++i;
     }
 
     if (ctx->trailing) {
@@ -384,7 +383,7 @@ void document_t::save_data_to_disk(const document_t& doc, const std::string& pat
     int index = 0;
     aligned.clear();
     for (const auto& v : ctx->varlist) {
-        if (!v->trails) {
+        if (!v->trails && v->fit.size() == 0) {
             v->index = index++;
             aligned.push_back(v);
         }
