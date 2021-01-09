@@ -288,11 +288,7 @@ std::string var_t::to_string() const {
     if (numeric) suffix += " (num)";
     if (trails) suffix += " (trails)";
     if (exceptions.size() > 0) {
-        suffix += " except { ";
-        for (const auto& m : exceptions) {
-            suffix += m.first + " == " + m.second + ", ";
-        }
-        suffix += "}";
+        suffix += " (" + std::to_string(exceptions.size()) + " exception" + (exceptions.size() == 1 ? "" : "s") + ")";
     }
     if (fit.size() > 0) {
         std::string s = "fit {";
