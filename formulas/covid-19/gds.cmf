@@ -20,12 +20,8 @@ state = "Country/Region" except {
     "Korea, South" == "South Korea",
     "Holy See" == "Vatican City",
     "West Bank and Gaza" == "Palestine",
-    "Sao Tome and Principe" == "São Tomé and Príncipe",
 };
-region = "Province/State" except {
-    "Curacao" == "Curaçao",
-    "Reunion" == "Réunion",
-};
+region = "Province/State";
 
 key place = fit region, state;
 

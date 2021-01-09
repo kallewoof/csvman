@@ -3,7 +3,11 @@
 key date = "day" as { "%u/%u/%u", year(0), month(1), day(2) };
 countryCode = "countryCode";
 
-state = "countryName";
+state = "countryName" except {
+    "São Tomé and Príncipe" == "Sao Tome and Principe",
+    "Curaçao" == "Curacao",
+    "Réunion" == "Reunion",
+};
 region = "region";
 
 key place = fit state, region;
