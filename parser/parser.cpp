@@ -20,9 +20,11 @@ Token head = nullptr;
     }
 #define DEBUG_PARSER(s) //pdo __pdo(s) //printf("- %s\n", s)
 
-bool parse_keyword(cache_map& cache, Token& r, const std::string& keyword) {
+bool parse_keyword(cache_map& cache, Token& s, const std::string& keyword) {
+    Token r = s;
     var_t* v = (var_t*)parse_variable(cache, r);
     if (!v) return false;
+    s = r;
     bool rv = v->varname == keyword;
     delete v;
     return rv;
@@ -42,11 +44,33 @@ ST parse_variable(cache_map& cache, Token& s, bool allow_priority) {
     return nullptr;
 }
 
+bool parse_except(cache_map& cache, Token& s, std::map<std::string,std::string>& exceptions) {
+    // except { equality, equality, ... }
+    DEBUG_PARSER("except");
+    Token r = s;
+    if (!parse_keyword(cache, r, "except")) return false;
+    if (r->token != tok_lcurly || !r->next/*x*/ || !r->next->next/*==*/ || !r->next->next->next/*y*/) return false;
+    r = r->next;
+
+    while (r) {
+        equality_t* next = (equality_t*)parse_equality(cache, r);
+        if (!next) break;
+        exceptions[next->a] = next->b;
+        delete next;
+        if (!r || r->token != tok_comma) break;
+        r = r->next;
+    }
+    if (!r || r->token != tok_rcurly) return false;
+    s = r->next;
+    return true;
+}
+
 ST parse_value(cache_map& cache, Token& s) {
     DEBUG_PARSER("value");
     if (s->token == tok_symbol || s->token == tok_number || s->token == tok_string || s->token == tok_mul) {
         value_t* t = new value_t(s->token, s->value);
         s = s->next;
+        if (s) parse_except(cache, s, t->exceptions);
         return t;
     }
     return nullptr;
@@ -110,6 +134,25 @@ ST parse_field(cache_map& cache, Token& s) {
     return new field_t(value, new as_t(fmt, list));
 }
 
+ST parse_equality(cache_map& cache, Token& s) {
+    // value1 tok_equal value2
+    DEBUG_PARSER("equality");
+    Token r = s;
+    value_t* val = (value_t*) parse_value(cache, r);
+    if (!val || val->type != tok_string) return nullptr;
+    std::string a = val->value;
+    delete val;
+    if (!r || r->token != tok_equal) { return nullptr; }
+    r = r->next;
+    val = (value_t*) parse_value(cache, r);
+    if (!val || val->type != tok_string) return nullptr;
+    std::string b = val->value;
+    delete val;
+
+    s = r;
+    return new equality_t(a, b);
+}
+
 ST parse_set(cache_map& cache, Token& s) {
     // tok_symbol tok_set [expr]
     DEBUG_PARSER("set");
@@ -163,15 +206,17 @@ ST parse_declarations(cache_map& cache, Token& s) {
     return nullptr;
 }
 
-// ST parse_fit(cache_map& cache, Token& s) {
-//     DEBUG_PARSER("fit");
-//     Token r = s;
-//     if (!parse_keyword(cache, r, "fit")) return nullptr;
-//     auto fits = parse_symbol_list(cache, r);
-//     if (fits.size() < 2) return nullptr;
-//     s = r;
-//     return new fit_t(fits);
-// }
+ST parse_fit(cache_map& cache, Token& s) {
+    DEBUG_PARSER("fit");
+    Token r = s;
+    if (!parse_keyword(cache, r, "fit")) return nullptr;
+    auto fits = parse_symbol_list(cache, r);
+    if (fits.size() < 2) return nullptr;
+    std::vector<std::string> fit_labels;
+    for (const auto& s : fits) fit_labels.push_back(s.label);
+    s = r;
+    return new fit_t(fit_labels);
+}
 
 ST parse_key(cache_map& cache, Token& s) {
     DEBUG_PARSER("key");
@@ -209,7 +254,7 @@ ST parse_expr(cache_map& cache, Token& s) {
     // foobar38, "foobar", 38, foobar38 = [...], fit ..., key foobar38
     try(parse_key);
     // foobar38, "foobar", 38, foobar38 = [...], fit ...
-    // try(parse_fit);
+    try(parse_fit);
     // foobar38, "foobar", 38, foobar38 = [...]
     try(parse_set);
     // foobar38, "foobar", 38

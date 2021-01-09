@@ -4,10 +4,10 @@
 # for other formats, these will appear as the fields "confirmed", "recovered", and "deaths"
 aspects confirmed, recovered, deaths;
 
-key state = "Province/State";
+state = "Province/State";
 region = "Country/Region";
 
-# key place = fit region, country;
+key place = fit state, region;
 
 lat = "Lat";
 long = "Long";

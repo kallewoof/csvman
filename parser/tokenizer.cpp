@@ -84,6 +84,7 @@ Token tokenize(const char* s) {
                 open = true;
                 break;
             case tok_set:
+            case tok_equal:
             case tok_mul:
             case tok_lparen:
             case tok_rparen:

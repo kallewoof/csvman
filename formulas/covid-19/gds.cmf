@@ -8,12 +8,27 @@
 
 key date = "Date" as { "%u-%u-%u", year(0), month(1), day(2) };
 
-key state = "Country/Region";
+# state is often encompassing multiple places, region is often empty
+state = "Country/Region" except {
+    "Burma" == "Myanmar",
+    "Cabo Verde" == "Cape Verde",
+    "Congo (Kinshasa)" == "DR Congo",
+    "Congo (Brazzaville)" == "Republic of the Congo",
+    "Cote d'Ivoire" == "Ivory Coast",
+    "US" == "United States",
+    "Taiwan*" == "Taiwan",
+    "Korea, South" == "South Korea",
+    "Holy See" == "Vatican City",
+    "West Bank and Gaza" == "Palestine",
+    "Sao Tome and Principe" == "São Tomé and Príncipe",
+};
+region = "Province/State" except {
+    "Curacao" == "Curaçao",
+    "Reunion" == "Réunion",
+};
 
-region = "Province/State";
+key place = fit region, state;
 
-# key place = fit region, country;
-
-confirmed = "Confirmed";
-recovered = "Recovered";
-deaths = "Deaths";
+confirmed = sum("Confirmed");
+recovered = sum("Recovered");
+deaths = sum("Deaths");

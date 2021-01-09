@@ -42,8 +42,10 @@ ST parse_sum(cache_map& cache, Token& s);
 ST parse_field(cache_map& cache, Token& s);
 ST parse_set(cache_map& cache, Token& s);
 ST parse_declarations(cache_map& cache, Token& s);
-// ST parse_fit(cache_map& cache, Token& s);
+ST parse_fit(cache_map& cache, Token& s);
 ST parse_key(cache_map& cache, Token& s);
+ST parse_equality(cache_map& cache, Token& s);
+// ST parse_except(cache_map& cache, Token& s);
 
 } // namespace parser
 

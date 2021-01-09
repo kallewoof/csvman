@@ -36,7 +36,7 @@ void env_t::save(const std::string& variable, ref value) {
     save(variable, ctx->temps.pull(value));
 }
 
-ref env_t::constant(const std::string& value, token_type type) {
+ref env_t::constant(const std::string& value, token_type type, const std::map<std::string,std::string>& exceptions) {
     switch (type) {
     case parser::tok_number:
     case parser::tok_string:
@@ -44,7 +44,7 @@ ref env_t::constant(const std::string& value, token_type type) {
     default:
         throw std::runtime_error(std::string("unable to convert ") + parser::token_type_str[type]);
     }
-    return ctx->temps.emplace(value, type == parser::tok_number);
+    return ctx->temps.emplace(value, type == parser::tok_number, exceptions);
 }
 
 ref env_t::scanf(const std::string& input, const std::string& fmt, const std::vector<prioritized_t>& varnames) {
@@ -93,6 +93,12 @@ ref env_t::helper(ref source) {
     return source;
 }
 
+// ref env_t::exceptions(const std::map<std::string,std::string>& list) {
+//     Var exceptvar = std::make_shared<var_t>();
+//     exceptvar->exceptions = list;
+//     return ctx->temps.pass(exceptvar);
+// }
+
 bool scan(const std::set<char>& allowed, const char stopper, const char*& data, char* dst, bool decimal = false) {
     // skip past white space
     while (data[0] == ' ' || data[0] == '\t' || data[0] == '\n') ++data;
@@ -117,6 +123,8 @@ template<typename T> static inline void set_insert_array(std::set<T>& set, T* ar
 
 void var_t::read(const std::string& input_string) {
     value = input_string;
+
+    if (exceptions.count(value)) value = exceptions[value];
 
     if (fit.size() > 0) {
         const char* ch = input_string.data();
@@ -182,7 +190,7 @@ void var_t::read(const std::string& input_string) {
     if (varnamepos < varnames.size()) throw std::runtime_error("input ended before scanning variable " + varnames[varnamepos].label + " in " + input_string + " for format " + fmt);
 }
 
-Value var_t::imprint() const {
+Value var_t::imprint(std::set<std::string>& fitness_set) const {
     mutable_val_t val;
     val.value = value;
     val.numeric = is_numeric(value.c_str());
@@ -191,21 +199,55 @@ Value var_t::imprint() const {
         for (size_t i = 0; i < varnames.size(); ++i) {
             val.comps[varnames[i].label] = prioritized_t(comps.at(varnames[i].label), varnames.at(i).priority);
         }
-        return std::make_shared<val_t>(val);
+    }
+    if (fit.size() > 0) {
+        std::vector<std::string> versions;
+        for (const auto& f : fit) versions.push_back(f->write());
+        size_t i = 0, first = 0;
+        for (; i < versions.size(); ++i) {
+            if (versions[i] == "") {
+                first += first == i;
+                continue;
+            }
+            if (fitness_set.count(versions[i])) {
+                break;
+            }
+        }
+        if (i == versions.size()) {
+            // insert
+            fitness_set.insert(versions[first]);
+            i = first;
+        }
+        val.value = versions[i];
+        versions.erase(versions.begin() + i);
+        val.alternatives = versions;
     }
     return std::make_shared<val_t>(val);
 }
 
 void var_t::read(const val_t& val) {
     const auto& val_comps = val.get_comps();
-    if (val_comps.size() == 0) {
-        value = val.get_value();
-    } else {
+    if (val_comps.size() > 0) {
         comps.clear();
         for (size_t i = 0; i < varnames.size(); ++i) {
             comps[varnames[i].label] = val_comps.at(varnames[i].label).label;
         }
         value = write();
+    } else if (fit.size() > 0) {
+        std::vector<std::string> versions;
+        versions.push_back(val.get_value());
+        versions.insert(versions.end(), val.alternatives.begin(), val.alternatives.end());
+        if (versions.size() != fit.size()) throw std::runtime_error("fit error (" + std::to_string(versions.size()) + " != " + std::to_string(fit.size()) + ")");
+        // alternatives.clear();
+        for (size_t i = 0; i < fit.size(); ++i) {
+            fit[i]->read(versions[i]);
+            // alternatives.push_back(fit[i]->imprint());
+        }
+    } else {
+        value = val.get_value();
+        if (exceptions.count(value)) {
+            value = exceptions[value];
+        }
     }
 }
 
@@ -246,6 +288,13 @@ std::string var_t::to_string() const {
     if (key) suffix += " (key)";
     if (numeric) suffix += " (num)";
     if (trails) suffix += " (trails)";
+    if (exceptions.size() > 0) {
+        suffix += " except { ";
+        for (const auto& m : exceptions) {
+            suffix += m.first + " == " + m.second + ", ";
+        }
+        suffix += "}";
+    }
     if (fit.size() > 0) {
         std::string s = "fit {";
         for (const auto& f : fit) s += "\n\t" + f->to_string();
@@ -269,6 +318,13 @@ std::string val_t::to_string() const {
             s += (s == "" ? "" : ", ") + c.first + "=" + c.second.to_string();
         }
         return "{ " + s + " }";
+    }
+    if (alternatives.size() > 0) {
+        s = get_value();
+        for (const auto& a : alternatives) {
+            s += "|" + a;
+        }
+        return s;
     }
     return get_value();
 }
@@ -324,6 +380,22 @@ void val_t::set_number(int64_t v) {
 bool val_t::operator<(const val_t& other) const {
     int c = memcmp(comparable, other.comparable, complen > other.complen ? other.complen : complen);
     return c ? c < 0 : other.complen > complen;
+}
+
+bool val_t::fits(const val_t& value) const {
+    if (alternatives.size() == 0) {
+        if (value.alternatives.size() > 0) {
+            return value.fits(*this);
+        }
+        return !(*this < value) && !(value < *this);
+    }
+    if (comps.size() > 0) {
+        throw std::runtime_error("components and fitted vars are unsupported");
+    }
+    for (const auto& a : alternatives) {
+        if (value._value == a) return true;
+    }
+    return false;
 }
 
 Value val_t::clone() const {

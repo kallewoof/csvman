@@ -17,6 +17,7 @@ enum token_type {
     tok_symbol,    // variable, function name, ...
     tok_number,
     tok_set,
+    tok_equal,
     tok_lparen,
     tok_rparen,
     tok_string,
@@ -35,6 +36,7 @@ static const char* token_type_str[] = {
     "???",
     "symbol",
     "number",
+    "set",
     "equal",
     "lparen",
     "rparen",
@@ -80,7 +82,13 @@ inline token_type determine_token(const char c, const char p, token_type current
     }
     if (c == ',') return tok_comma;
     if (c == ';') return tok_semicolon;
-    if (c == '=') return tok_set;
+    if (c == '=') {
+        if (current == tok_set) {
+            consumes = 1;
+            return tok_equal;
+        }
+        return tok_set;
+    }
     if (c == ')') return tok_rparen;
     if (c == '}') return tok_rcurly;
     if (c == ' ' || c == '\t' || c == '\n') return tok_ws;

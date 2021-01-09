@@ -62,25 +62,27 @@ int main(int argc, char* const* argv) {
         param = ca.m['p'];
     }
 
+    std::set<std::string> fitness_set;
+
     size_t source_end = ca.l.size();
     Document dest;
     std::string output_path = "result.csv";
     if (ca.m.count('f')) {
         // file output, with format specified in 'o' and the file as the last argument in 'l'.
         --source_end;
-        dest = std::make_shared<document_t>(ca.m.at('f').c_str());
+        dest = std::make_shared<document_t>(ca.m.at('f').c_str(), &fitness_set);
         output_path = ca.l.back();
     }
 
     std::vector<Document> sources;
 
     while (ca.iter < source_end) {
-        sources.push_back(std::make_shared<document_t>(ca.next()));
+        sources.push_back(std::make_shared<document_t>(ca.next(), &fitness_set));
         sources.back()->load_from_disk(ca);
     }
 
     if (!dest) {
-        dest = std::make_shared<document_t>(sources.back()->cmf_path.c_str());
+        dest = std::make_shared<document_t>(sources.back()->cmf_path.c_str(), &fitness_set);
     }
 
     dest->import_data(sources, mode, param);

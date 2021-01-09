@@ -24,10 +24,11 @@ static void verify() {
     date2.value = "2021-01-06";
     date2.comps["day"] = "06";
 
+    std::set<std::string> fs;
     group_t g;
-    g.values.push_back(date.imprint());
+    g.values.push_back(date.imprint(fs));
     group_t g2;
-    g2.values.push_back(date2.imprint());
+    g2.values.push_back(date2.imprint(fs));
     assert (g<g2);
     assert (!(g2<g));
 
@@ -90,7 +91,8 @@ group_t group_t::exclude(size_t index) const {
     return g;
 }
 
-document_t::document_t(const char* path) {
+document_t::document_t(const char* path, std::set<std::string>* fitness_set_in) {
+    fitness_set = fitness_set_in ?: new std::set<std::string>();
     if (!verified) verify();
     cmf_path = path;
     FILE* fp = fopen_or_die(path, fmode_reading);
@@ -138,7 +140,7 @@ void document_t::record_state(const Value& aspect_value) {
     group_t gk;
 
     for (const auto& v : keys) {
-        gk.values.push_back(v->imprint());
+        gk.values.push_back(v->imprint(*fitness_set));
     }
 
     bool existed = data.count(gk) > 0;
@@ -152,18 +154,18 @@ void document_t::record_state(const Value& aspect_value) {
 
     if (existed) {
         for (const auto &v : aggregates) {
-            valuemap[ctx->varnames[v]]->aggregate(*v->imprint(), phase);
+            valuemap[ctx->varnames[v]]->aggregate(*v->imprint(*fitness_set), phase);
         }
     } else {
         for (const auto& m : missing) {
             valuemap[m] = std::make_shared<val_t>("0");
         }
         for (const auto &v : aggregates) {
-            valuemap[ctx->varnames[v]] = v->imprint();
+            valuemap[ctx->varnames[v]] = v->imprint(*fitness_set);
             valuemap[ctx->varnames[v]]->phase = phase;
         }
         for (const auto &v : values) {
-            valuemap[ctx->varnames[v]] = v->imprint();
+            valuemap[ctx->varnames[v]] = v->imprint(*fitness_set);
         }
     }
 
@@ -220,6 +222,10 @@ void document_t::load_single(FILE* fp) {
     }
     size_t count = 0;
     while (reader.read(row)) {
+        // // 2020-01-22,Burma,,0,0,0
+        // if (row.size() > 2 && row[2] == "Curacao") {
+        //     debugbreak();
+        // }
         process(row);
         ++count;
         if (count % 100000 == 0) { printf("%zu\r", count); fflush(stdout); }
@@ -298,17 +304,39 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
 
         // starting point
         group_t g(doc.data.begin()->first);
+        // printf("starting point: %s; setting key %s\n", g.to_string().c_str(), ctx->varnames[key].c_str());
         for (const auto& v : keyset) {
+            // static int x = 0; x++;
+            // printf("%s = %s\n", ctx->varnames[key].c_str(), v.to_string().c_str());
             key->read(v);
+            // printf("read as %s\n", key->imprint(*fitness_set)->to_string().c_str());
             row[key->index] = key->write();
-            g.values[idx] = key->imprint();
+            // printf("row[%d] = %s (key->write)\n", key->index, row[key->index].c_str());
+            g.values[idx] = key->imprint(*fitness_set);
+            // printf("g.values[-'-] = %s\n", g.values[idx]->to_string().c_str());
+            // printf("g = %s\n", g.to_string().c_str());
             size_t rowidx = pretrail;
             bool initial = true;
             for (const auto& t : trail) {
                 ctx->trailing->read(t);
                 // we are using our own imprint of the value here (e.g. 2021-01-06), but it's retaining components, so any other format should work fine
                 // e.g. if the incoming doc uses "2021/01/06".
-                g.values[trail_idx] = ctx->trailing->imprint();
+                g.values[trail_idx] = ctx->trailing->imprint(*fitness_set);
+                if (doc.data.count(g) == 0) {
+                    // this data is missing, so we simply provide a zero value
+                    if (!warn_keys.count(key->write())) {
+                        warn_keys.insert(key->write());
+                        fprintf(stderr, "warning: parts of %s missing\n", key->write().c_str());
+                    }
+                    row[rowidx++] = "0";
+                    // // search for alternatives
+                    // for (const std::string& a : g.values[idx]->alternatives) {
+                    //     g.values[idx]->set_value(a);
+                    //     if (doc.data.count(g)) break;
+                    // }
+                    // if (!doc.data.count(g)) throw std::runtime_error("missing data for " + g.to_string());
+                    continue;
+                }
                 const auto& valuemap = doc.data.at(g);
                 if (initial) {
                     for (const auto& m : valuemap) {
@@ -387,7 +415,7 @@ void document_t::create_index(size_t group_index, std::set<val_t>& dest, Var for
     dest.clear();
     for (const auto& entry : data) {
         formatter->read(*entry.first.values.at(group_index));
-        dest.insert(*formatter->imprint());
+        dest.insert(*formatter->imprint(*fitness_set));
     }
 }
 
@@ -412,9 +440,6 @@ void document_t::import_data(const std::vector<Document>& sources, import_mode m
         // Insert values not previously found, and keep existing values.
         {
             std::set<group_t> known;
-            for (const auto& k : data) {
-                known.emplace(k.first);
-            }
             for (auto it = sources.rbegin(); it != sources.rend(); ++it) {
                 Document d = *it;
                 for (const auto& k : d->data) {

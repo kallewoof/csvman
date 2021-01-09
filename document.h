@@ -52,8 +52,8 @@ public:
 
     std::string cmf_path;
 
-    document_t(Context ctx_in) : ctx(ctx_in) {}
-    document_t(const char* path);
+    document_t(Context ctx_in, std::set<std::string>* fitness_set_in = nullptr) : ctx(ctx_in), fitness_set(fitness_set_in ?: new std::set<std::string>()) {}
+    document_t(const char* path, std::set<std::string>* fitness_set_in = nullptr);
     document_t() : ctx(nullptr) {}
 
     // align var names to header indices in a document (e.g. a CSV file's first line)
@@ -71,12 +71,26 @@ public:
     void save_data_to_disk(const std::string& path);
 
     void save_data_to_disk(const document_t& doc, const std::string& path);
+
+    mutable std::set<std::string>* fitness_set{nullptr};
 private:
     uint8_t phase{0};
     Context ctx;
     std::vector<Var> keys, values, aligned, aggregates;
     std::vector<std::string> missing; // these are set to the value "0" for all value maps
     std::map<std::string, int> key_indices;
+    std::set<std::string> warn_keys;
+    /**
+     * Sometimes data is presented in several columns, where the representation differs between sets.
+     * For example, one set may call it the country Anguilla in the region the Americas, while another
+     * set calls it the state Anguilla in the region the United Kingdom.
+     * The fitness set will look at all cases where alternatives exist, and:
+     * (1) if one of the alternatives exists in the set, it is selected.
+     * (2) if none exist, the primary value is inserted into the set.
+     * Empty values are never inserted, and not accepted as alternatives when determining the value.
+     * As such, for data with a preferred-if-present column, a fit over this column and the less-good
+     * alternative is also possible.
+     */
     std::vector<std::string> trail; // for formats with a trail (header contains e.g. dates in a trail going right), this contains the header values
 
     void load_single(FILE* fp);

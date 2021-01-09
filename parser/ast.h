@@ -1,6 +1,7 @@
 #ifndef included_ast_h_
 #define included_ast_h_
 
+#include <memory>
 #include <string>
 
 #include "tokenizer.h"
@@ -21,7 +22,7 @@ struct st_callback_table {
     bool ret = false;
     virtual ref  load(const std::string& variable) = 0;
     virtual void save(const std::string& variable, ref value) = 0;
-    virtual ref  constant(const std::string& value, token_type type) = 0;
+    virtual ref  constant(const std::string& value, token_type type, const std::map<std::string,std::string>& exceptions) = 0;
     virtual ref scanf(const std::string& input, const std::string& fmt, const std::vector<prioritized_t>& varnames) = 0;
     virtual ref sum(ref value) = 0;
     // virtual void declare(const std::string& key, const std::string& value) = 0;
@@ -29,6 +30,7 @@ struct st_callback_table {
     virtual ref fit(const std::vector<std::string>& sources) = 0;
     virtual ref key(ref source) = 0;
     virtual ref helper(ref source) = 0;
+    // virtual ref exceptions(const std::map<std::string,std::string>& list) = 0;
 };
 
 typedef struct st_t * ST;
@@ -43,7 +45,7 @@ struct st_t {
     virtual ref eval(st_callback_table* ct) {
         return nullref;
     }
-    virtual ST clone() {
+    virtual ST clone() const {
         return new st_t();
     }
 };
@@ -94,7 +96,7 @@ struct st_c {
             delete refcnt;
         }
     }
-    st_c clone() {
+    st_c clone() const {
         return st_c(r->clone());
     }
 };
@@ -109,7 +111,7 @@ struct var_t: public st_t {
     virtual ref eval(st_callback_table* ct) override {
         return ct->load(varname);
     }
-    virtual ST clone() override {
+    virtual ST clone() const override {
         return new var_t(varname);
     }
 };
@@ -124,7 +126,7 @@ struct fit_t: public st_t {
     virtual ref eval(st_callback_table* ct) override {
         return ct->fit(references);
     }
-    virtual ST clone() override {
+    virtual ST clone() const override {
         return new fit_t(references);
     }
 };
@@ -139,7 +141,7 @@ struct key_t: public st_t {
         ref result = value.r->eval(ct);
         return ct->key(result);
     }
-    virtual ST clone() override {
+    virtual ST clone() const override {
         return new key_t(value.clone());
     }
 };
@@ -154,7 +156,7 @@ struct helper_t: public st_t {
         ref result = value.r->eval(ct);
         return ct->helper(result);
     }
-    virtual ST clone() override {
+    virtual ST clone() const override {
         return new helper_t(value.clone());
     }
 };
@@ -162,21 +164,31 @@ struct helper_t: public st_t {
 struct value_t: public st_t {
     token_type type; // tok_number, tok_string, tok_symbol
     std::string value;
-    value_t(token_type type_in, const std::string& value_in) : type(type_in), value(value_in) {
+    std::map<std::string,std::string> exceptions;
+    value_t(token_type type_in, const std::string& value_in, const std::map<std::string,std::string>& exceptions_in = std::map<std::string,std::string>()) : type(type_in), value(value_in), exceptions(exceptions_in) {
+        if (type == tok_symbol && exceptions.size() > 0) throw std::runtime_error("non-constant value exceptions not supported");
         if (type == tok_string && value.length() > 0 && value[0] == '"' && value[value.length()-1] == '"') {
             // get rid of quotes
             value = value.substr(1, value.length() - 2);
         }
     }
     virtual std::string to_string() override {
-        return value;
+        std::string s = value;
+        if (exceptions.size() > 0) {
+            s += " except {\n";
+            for (const auto& e : exceptions) {
+                s += "\t" + e.first + " == " + e.second + "\n";
+            }
+            s += "}";
+        }
+        return s;
     }
     virtual ref eval(st_callback_table* ct) override {
         if (type == tok_symbol) return ct->load(value);
-        return ct->constant(value, type);
+        return ct->constant(value, type, exceptions);
     }
-    virtual ST clone() override {
-        return new value_t(type, value);
+    virtual ST clone() const override {
+        return new value_t(type, value, exceptions);
     }
 };
 
@@ -192,7 +204,7 @@ struct set_t: public st_t {
         ct->save(varname, result);
         return result;
     }
-    virtual ST clone() override {
+    virtual ST clone() const override {
         return new set_t(varname, value.clone());
     }
 };
@@ -207,7 +219,7 @@ struct set_t: public st_t {
 //         ct->declare(key, value);
 //         return nullref;
 //     }
-//     virtual ST clone() override {
+//     virtual ST clone() const override {
 //         return new decl_t(key, value);
 //     }
 // };
@@ -227,7 +239,7 @@ struct aspects_t: public st_t {
         ct->declare_aspects(aspects, source);
         return nullref;
     }
-    virtual ST clone() override {
+    virtual ST clone() const override {
         return new aspects_t(aspects, source);
     }
 };
@@ -245,10 +257,34 @@ struct as_t: public st_t {
         }
         return s + " }";
     }
-    virtual ST clone() override {
+    virtual ST clone() const override {
         return new as_t(fmt, fields);
     }
 };
+
+struct equality_t: public st_t {
+    std::string a, b;
+    equality_t(const std::string& a_in, const std::string& b_in) : a(a_in), b(b_in) {}
+};
+
+// // except { "foo" == "bar", ... };
+// struct except_t: public st_t {
+//     std::map<std::string,std::string> exceptions;
+//     except_t(const std::map<std::string,std::string>& exceptions_in) : exceptions(exceptions_in) {}
+//     virtual std::string to_string() override {
+//         std::string s = "except {\n";
+//         for (const auto& e : exceptions) {
+//             s += "\t" + e.first + " == " + e.second + "\n";
+//         }
+//         return s + "}";
+//     }
+//     virtual ref eval(st_callback_table* ct) override {
+//         return ct->exceptions(exceptions);
+//     }
+//     virtual ST clone() const override {
+//         return new except_t(exceptions);
+//     }
+// };
 
 // * as { "%u/%u/%u", year, month, day };
 struct field_t: public st_t {
@@ -264,7 +300,7 @@ struct field_t: public st_t {
     virtual ref eval(st_callback_table* ct) override {
         return ct->scanf(value, as->fmt, as->fields);
     }
-    virtual ST clone() override {
+    virtual ST clone() const override {
         return new field_t(value, (as_t*) as->clone());
     }
 };
@@ -280,7 +316,7 @@ struct sum_t: public st_t {
         ref result = aggregate.r->eval(ct);
         return ct->sum(result);
     }
-    virtual ST clone() override {
+    virtual ST clone() const override {
         return new sum_t(aggregate.clone());
     }
 };

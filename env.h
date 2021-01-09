@@ -9,6 +9,7 @@ using parser::ref;
 struct mutable_val_t {
     std::string value;
     std::map<std::string, prioritized_t> comps;
+    std::vector<std::string> alternatives;
     bool numeric{false};
 };
 
@@ -25,8 +26,9 @@ private:
     // this differs from get_number() in that it forcibly converts value, whereas get_number() assumes numeric=true
     int64_t int64() const { int64_t x = cached_number; cached_number = number; auto rv = (int64_t)atoll(get_value().c_str()); cached_number = x; return rv; }
 public:
+    std::vector<std::string> alternatives;
     uint8_t phase{0};
-    val_t(const mutable_val_t& mv) : _value(mv.value), comps(mv.comps), comparable(nullptr), complen(0), numeric(mv.numeric) {
+    val_t(const mutable_val_t& mv) : _value(mv.value), comps(mv.comps), comparable(nullptr), complen(0), numeric(mv.numeric), alternatives(mv.alternatives) {
         if (numeric) number = int64(); did_change();
     }
     val_t(const std::string& value_in = "") : _value(value_in), comparable(nullptr), complen(0) { did_change(); }
@@ -41,6 +43,7 @@ public:
     bool is_number() const;
     int64_t get_number() const;
     void set_number(int64_t v);
+    bool fits(const val_t& value) const;
 };
 
 typedef std::shared_ptr<val_t> Value;
@@ -56,17 +59,19 @@ struct var_t {
     bool numeric{false};
     bool aggregates{false};
     bool helper{false};
+    std::map<std::string,std::string> exceptions; // "Burma" == "Myanmar"
 
     ref pref{0};
     std::string fmt;
     std::vector<prioritized_t> varnames;
     var_t(const std::string& str_in = "") : str(str_in) {}
     var_t(const std::string& str_in, bool numeric_in) : str(str_in), numeric(numeric_in) {}
+    var_t(const std::string& str_in, bool numeric_in, const std::map<std::string,std::string>& exceptions_in) : str(str_in), numeric(numeric_in), exceptions(exceptions_in) {}
     void read(const std::string& input);
     std::string write() const;
     std::string to_string() const;
     bool operator<(const var_t& other) const;
-    Value imprint() const;
+    Value imprint(std::set<std::string>& fitness_set) const;
     void read(const val_t& val);
 };
 
@@ -86,8 +91,8 @@ struct tempstore_t {
         store.push_back(v);
         return store.size() - 1;
     }
-    ref emplace(const std::string& value, bool numeric = false) {
-        return retain(std::make_shared<var_t>(value, numeric));
+    ref emplace(const std::string& value, bool numeric = false, const std::map<std::string,std::string>& exceptions = std::map<std::string,std::string>()) {
+        return retain(std::make_shared<var_t>(value, numeric, exceptions));
     }
     inline Var& pull(ref r) {
         for (;;) {
@@ -121,7 +126,7 @@ struct env_t: public parser::st_callback_table {
     ref load(const std::string& variable) override;
     void save(const std::string& variable, const Var& value);
     void save(const std::string& variable, ref value) override;
-    ref constant(const std::string& value, parser::token_type type) override;
+    ref constant(const std::string& value, parser::token_type type, const std::map<std::string,std::string>& exceptions) override;
     ref scanf(const std::string& input, const std::string& fmt, const std::vector<prioritized_t>& varnames) override;
     ref sum(ref value) override;
     // void declare(const std::string& key, const std::string& value) override;

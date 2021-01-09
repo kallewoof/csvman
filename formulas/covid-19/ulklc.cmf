@@ -3,14 +3,14 @@
 key date = "day" as { "%u/%u/%u", year(0), month(1), day(2) };
 countryCode = "countryCode";
 
-key state = "countryName";
+state = "countryName";
 region = "region";
 
-# key place = "countryName";
-# fit region, country;
+key place = fit state, region;
 
 lat = "lat";
 long = "lon";
-confirmed = "confirmed";
-recovered = "recovered";
-deaths = "death";
+
+confirmed = sum("confirmed");
+recovered = sum("recovered");
+deaths = sum("death");
