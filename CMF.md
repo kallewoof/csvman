@@ -2,13 +2,17 @@
 
 CSV files begin with a one line comma-separated header, labeling each column, followed by any number of data rows.
 
-> Name,Location
-> Kalle,Japan
+```
+Name,Location
+Kalle,Japan
+```
 
 This can be declared in CMF as such:
 
-> name = "Name";
-> location = "Location";
+```
+name = "Name";
+location = "Location";
+```
 
 ### Keys and values
 
@@ -16,8 +20,10 @@ Generally, data is grouped into keys -- which represent a query -- and values --
 
 For example, if the question is: what is the location of these people, the name variable above would be the key, and the location would be the value. Variables are by default values.
 
-> key name = "Name";
-> location = "Location";
+```
+key name = "Name";
+location = "Location";
+```
 
 (As a sidenote, if the question is "who's at the given location", the location would be the key, and the name would be the value.)
 
@@ -42,21 +48,27 @@ Needless to say, we want to just group these all into an "Anguilla" key and have
 
 Data set 1 above:
 
-> state = "Province/State";
-> region = "Country/Region";
-> key location = fit state, region;
+```
+state = "Province/State";
+region = "Country/Region";
+key location = fit state, region;
+```
 
 Data set 2 above:
 
-> state = "Country/Region";
-> region = "Province/State";
-> key location = fit state, region;
+```
+state = "Country/Region";
+region = "Province/State";
+key location = fit state, region;
+```
 
 Data set 3:
 
-> state = "countryName";
-> region = "region";
-> key location = fit state, region;
+```
+state = "countryName";
+region = "region";
+key location = fit state, region;
+```
 
 Whenever location is evaluated, the value of the state is looked at first ("Anguilla"). If this value has been seen before, it is accepted, otherwise the value of the region ("United Kingdom") is looked at. If this has not been seen before either (it hasn't), the system earmarks the first non-empty value (state or region, whichever one is not equal to "", i.e. "Anguilla") and returns that.
 
@@ -70,9 +82,11 @@ Note that fitted values are not written to the output (similarly to the fact the
 
 Sometimes one data set will call it Burma while another data set calls it Myanmar. It's very manual right now, but we can tell CMF to swap out one for the other:
 
+```
 state = "Country/Region" except {
     "Burma" == "Myanmar",
 };
+```
 
 Whenever the given data set processes a state that claims to be "Burma", it will simply rewrite the name as "Myanmar".
 
@@ -82,15 +96,19 @@ Data sets can come with varying granularity. For example, a US data set may be d
 
 We can tell CMF to aggregate (sum up) values when it encounters multiple entries of the same key set:
 
-> confirmed = sum("Confirmed");
-> recovered = sum("Recovered");
-> deaths = sum("Deaths");
+```
+confirmed = sum("Confirmed");
+recovered = sum("Recovered");
+deaths = sum("Deaths");
+```
 
 ### Formatting
 
 Specifically dates can come in various formats, and the format is sometimes a part of the specification. CMF lets you describe the format of a value so that you can convert it as part of the merging process:
 
-> key date = "Date" as { "%u-%u-%u", year, month, day };
+```
+key date = "Date" as { "%u-%u-%u", year, month, day };
+```
 
 The above describes the date key as using the "Date" column, split into components using the given scanf string. The first value is the year, the second one is the month, and the third is the day.
 
@@ -98,7 +116,9 @@ As such, when this interprets the string "2021-01-09", it will extract year=2021
 
 When the above date is passed on to this:
 
-> key date2 = "Date" as { "%u/%u/%u", year, month, day };
+```
+key date2 = "Date" as { "%u/%u/%u", year, month, day };
+```
 
 it will come out as "2021/01/09" in the output.
 
@@ -106,20 +126,26 @@ it will come out as "2021/01/09" in the output.
 
 Sometimes, data is represented as a 2-dimensional map where the top header's right-hand columns are values as well. For example:
 
-> Name,2021-01-04,2021-01-05,2021-01-06,2021-01-07,...
-> Kalle,WFH,WFH,WFH,WFH,...
-> Lucy,Vacation,Vacation,WFH,WFH,...
-> Peter,WFH,WFH,Office,WFH,...
+```
+Name,2021-01-04,2021-01-05,2021-01-06,2021-01-07,...
+Kalle,WFH,WFH,WFH,WFH,...
+Lucy,Vacation,Vacation,WFH,WFH,...
+Peter,WFH,WFH,Office,WFH,...
+```
 
 I.e. a column is added at the start of each day, and the employees fill in where they are that day.
 Here, the actual headers are part of the data, i.e. the 'date'. We can represent this in CMF using the '*' value:
 
-> key name = "Name";
-> key date = * as { "%u-%u-%u", year, month, day };
-> aspect location;
+```
+key name = "Name";
+key date = * as { "%u-%u-%u", year, month, day };
+aspect location;
+```
 
 Since the date *value* is stored in the header itself, we also need to explain what the individual values below it mean. The third line declares the name of the value in the date columns.
 
 In some cases there are multiple files with the same name and date values, but containing different data (e.g. confirmed cases, recovered cases, and deaths, for a pandemic). These three documents define *aspects* of a given data. In CMF, they can be declared as:
 
-> aspects confirmed, recovered, deaths;
+```
+aspects confirmed, recovered, deaths;
+```
