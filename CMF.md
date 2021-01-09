@@ -124,7 +124,26 @@ it will come out as "2021/01/09" in the output.
 
 ### Trailing data and aspects
 
-Sometimes, data is represented as a 2-dimensional map where the top header's right-hand columns are values as well. For example:
+Sometimes, data is represented as a 2-dimensional map where the top header's right-hand columns are values as well. Consider this:
+
+```
+Name,Date,Location
+Kalle,2021-01-04,WFH
+Lucy,2021-01-04,Vacation
+Peter,2021-01-04,WFH
+Kalle,2021-01-05,WFH
+Lucy,2021-01-05,Vacation
+Peter,2021-01-05,WFH
+Kalle,2021-01-06,WFH
+Lucy,2021-01-06,WFH
+Peter,2021-01-06,Office
+Kalle,2021-01-07,WFH
+Lucy,2021-01-07,WFH
+Peter,2021-01-07,WFH
+...
+```
+
+The date column is quite redundant, and this entire chunk of data can be written more succinctly as this:
 
 ```
 Name,2021-01-04,2021-01-05,2021-01-06,2021-01-07,...
