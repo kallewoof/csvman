@@ -29,7 +29,7 @@ location = "Location";
 
 Identifying keys in this manner is necessary when working with multiple data sources (CSV files), in particular when merging data sets.
 
-CMF takes a CSV file as input, converts it into a mapping where the key is the set of keys in the specification (name, in this case) and the value is the set of values (location), and then writes a new CSV file based for each value in this mapping.
+CMF takes a CSV file as input, converts it into a mapping where the key is the set of keys in the specification (name, in this case) and the value is the set of values (location), and then writes a new CSV file based on each value in this mapping.
 
 In other words, when working with multiple data sets, they must all have the same set of keys (although they can be ordered differently).
 
