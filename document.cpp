@@ -308,8 +308,10 @@ void document_t::write_single(const document_t& doc, FILE* fp) {
             // static int x = 0; x++;
             // printf("%s = %s\n", ctx->varnames[key].c_str(), v.to_string().c_str());
             key->read(v);
-            // printf("read as %s\n", key->imprint(*fitness_set)->to_string().c_str());
-            row[key->index] = key->write();
+            if (key->fit.size() == 0) {
+                // printf("read as %s\n", key->imprint(*fitness_set)->to_string().c_str());
+                row[key->index] = key->write();
+            }
             // printf("row[%d] = %s (key->write)\n", key->index, row[key->index].c_str());
             g.values[idx] = key->imprint(*fitness_set);
             // printf("g.values[-'-] = %s\n", g.values[idx]->to_string().c_str());
